@@ -9,8 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, AlertCircle, CheckCircle2, Bell } from 'lucide-react';
-import { BotConfig, BusinessInfo } from '@/types';
+import { Loader2, Save, AlertCircle, CheckCircle2, Bell, Sparkles } from 'lucide-react';
+import { BotConfig, BusinessInfo, TemplateWithOptions } from '@/types';
+import TemplateSelector from '@/components/templates/TemplateSelector';
+import BusinessOptionsForm from '@/components/templates/BusinessOptionsForm';
+import { applyTemplateToConfig } from '@/lib/templates/template-builder';
 
 export function BotConfigForm() {
   const [loading, setLoading] = useState(false);
@@ -37,6 +40,12 @@ export function BotConfigForm() {
   const [strictMode, setStrictMode] = useState(true);
   const [responseLength, setResponseLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [customInstructions, setCustomInstructions] = useState('');
+
+  // Template state
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithOptions | null>(null);
+  const [templateOptions, setTemplateOptions] = useState<Record<string, any>>({});
 
   useEffect(() => {
     loadConfig();
@@ -100,7 +109,9 @@ export function BotConfigForm() {
         use_emojis: useEmojis,
         strict_mode: strictMode,
         response_length: responseLength,
-        custom_instructions: customInstructions
+        custom_instructions: customInstructions,
+        selected_template_id: selectedTemplate?.id || null,
+        template_options: templateOptions
       };
 
       const response = await fetch('/api/bot/config', {
@@ -150,6 +161,56 @@ export function BotConfigForm() {
           </p>
         </div>
       )}
+
+      {/* Template Selector Button */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Plantillas de Negocio</h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Configura tu bot rápidamente con plantillas predefinidas
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTemplateModal(true)}
+              className="border-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900"
+            >
+              Cargar Plantilla
+            </Button>
+          </div>
+          {selectedTemplate && (
+            <div className="mt-4 p-3 bg-white dark:bg-gray-900 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{selectedTemplate.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {selectedTemplate.name}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Plantilla activa
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowOptionsModal(true)}
+                >
+                  Configurar opciones
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Contexto Principal */}
       <Card>
@@ -412,6 +473,86 @@ export function BotConfigForm() {
           </>
         )}
       </Button>
+
+      {/* Template Selector Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Seleccionar Plantilla</h2>
+                <button
+                  onClick={() => setShowTemplateModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <TemplateSelector
+                onSelect={(template) => {
+                  const applied = applyTemplateToConfig(template, {
+                    business_info: {
+                      name: businessName,
+                      hours: businessHours,
+                      address: businessAddress,
+                      phone: businessPhone,
+                    }
+                  });
+                  setSelectedTemplate(template);
+                  setMainContext(applied.main_context || '');
+                  setTone(applied.tone || 'friendly');
+                  setUseEmojis(applied.use_emojis || 'moderate');
+                  setResponseLength(applied.response_length || 'medium');
+                  setStrictMode(applied.strict_mode ?? true);
+                  setShowTemplateModal(false);
+                  setSuccess(false);
+                }}
+                selectedTemplateId={selectedTemplate?.id}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Business Options Modal */}
+      {showOptionsModal && selectedTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Opciones de {selectedTemplate.name}
+                </h2>
+                <button
+                  onClick={() => setShowOptionsModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <BusinessOptionsForm
+                templateId={selectedTemplate.id}
+                initialValues={templateOptions}
+                onChange={(values) => {
+                  setTemplateOptions(values);
+                }}
+              />
+              <div className="mt-6 flex justify-end">
+                <Button
+                  onClick={() => setShowOptionsModal(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Aplicar Opciones
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

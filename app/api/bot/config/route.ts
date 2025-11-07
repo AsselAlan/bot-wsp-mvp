@@ -81,7 +81,9 @@ export async function POST(request: NextRequest) {
       use_emojis,
       strict_mode,
       response_length,
-      custom_instructions
+      custom_instructions,
+      selected_template_id,
+      template_options
     } = body;
 
     // Validaciones
@@ -130,7 +132,9 @@ export async function POST(request: NextRequest) {
         use_emojis: use_emojis || 'moderate',
         strict_mode: strict_mode ?? true,
         response_length: response_length || 'medium',
-        custom_instructions: custom_instructions || ''
+        custom_instructions: custom_instructions || '',
+        selected_template_id: selected_template_id || null,
+        template_options: template_options || {}
       })
       .select()
       .single();
@@ -184,7 +188,9 @@ export async function PUT(request: NextRequest) {
       use_emojis,
       strict_mode,
       response_length,
-      custom_instructions
+      custom_instructions,
+      selected_template_id,
+      template_options
     } = body;
 
     const supabase = await createClient();
@@ -207,6 +213,8 @@ export async function PUT(request: NextRequest) {
     if (strict_mode !== undefined) updateData.strict_mode = strict_mode;
     if (response_length !== undefined) updateData.response_length = response_length;
     if (custom_instructions !== undefined) updateData.custom_instructions = custom_instructions;
+    if (selected_template_id !== undefined) updateData.selected_template_id = selected_template_id;
+    if (template_options !== undefined) updateData.template_options = template_options;
 
     // Actualizar configuración
     const { data, error } = await supabase

@@ -32,6 +32,8 @@ export interface BotConfig {
   strict_mode: boolean;
   response_length: 'short' | 'medium' | 'long';
   custom_instructions: string;
+  selected_template_id: string | null;
+  template_options: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -155,4 +157,66 @@ export interface UnansweredMessageListProps {
   messages: UnansweredMessage[];
   onMarkReviewed: (id: string) => Promise<void>;
   isLoading?: boolean;
+}
+
+// Business Templates Types
+export interface BusinessTemplate {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  description: string;
+  icon: string;
+  default_main_context: string;
+  default_tone: 'formal' | 'casual' | 'friendly';
+  default_use_emojis: 'never' | 'moderate' | 'frequent';
+  default_response_length: 'short' | 'medium' | 'long';
+  default_strict_mode: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateOption {
+  id: string;
+  template_id: string;
+  option_key: string;
+  option_label: string;
+  option_description: string | null;
+  category: string;
+  field_type: 'boolean' | 'text' | 'textarea' | 'url' | 'file' | 'select';
+  field_options: string[] | null;
+  default_value: string | null;
+  is_required: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface BusinessDocument {
+  id: string;
+  user_id: string;
+  document_type: 'menu' | 'catalog' | 'faq' | 'other';
+  file_name: string;
+  file_url: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  content_text: string | null;
+  metadata: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Template-related API Response Types
+export interface TemplateWithOptions extends BusinessTemplate {
+  options: TemplateOption[];
+}
+
+export interface TemplateListResponse {
+  templates: TemplateWithOptions[];
+}
+
+export interface ApplyTemplateRequest {
+  template_id: string;
+  template_options?: Record<string, any>;
 }

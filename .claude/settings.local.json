@@ -13,7 +13,9 @@
       "Bash(taskkill:*)",
       "Bash(del \"c:\\Users\\Alan\\Desktop\\bot-wsp\\ULTIMO_CONTEXTO.md\")",
       "Bash(rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

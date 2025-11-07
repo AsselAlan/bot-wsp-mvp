@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { BotConfig, MiniTask } from '@/types';
+import { buildTemplateInstructions } from '@/lib/templates/template-builder';
 
 interface MessageContext {
   senderNumber: string;
@@ -162,6 +163,14 @@ function buildSystemPrompt(config: BotConfig): string {
   // Agregar instrucciones personalizadas si existen
   if (custom_instructions && custom_instructions.trim() !== '') {
     prompt += `\n\nInstrucciones personalizadas adicionales:\n${custom_instructions}`;
+  }
+
+  // Agregar instrucciones de opciones de template si existen
+  if (config.template_options && Object.keys(config.template_options).length > 0) {
+    const templateInstructions = buildTemplateInstructions(config.template_options);
+    if (templateInstructions) {
+      prompt += templateInstructions;
+    }
   }
 
   return prompt;
