@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { BotConfig, MiniTask } from '@/types';
+import { BotConfig } from '@/types';
 import { buildTemplateInstructions } from '@/lib/templates/template-builder';
 
 interface MessageContext {
@@ -14,43 +14,14 @@ interface MessageContext {
 interface GenerateResponseOptions {
   config: BotConfig;
   context: MessageContext;
-  miniTasks: MiniTask[];
-}
-
-/**
- * Verifica si un mensaje coincide con alguna mini tarea activa
- */
-export function checkMiniTasks(messageText: string, miniTasks: MiniTask[]): string | null {
-  const normalizedMessage = messageText.toLowerCase().trim();
-
-  // Ordenar por prioridad (mayor primero)
-  const sortedTasks = [...miniTasks]
-    .filter(task => task.is_active)
-    .sort((a, b) => b.priority - a.priority);
-
-  // Buscar coincidencia
-  for (const task of sortedTasks) {
-    if (normalizedMessage.includes(task.trigger_keyword.toLowerCase())) {
-      return task.response_text;
-    }
-  }
-
-  return null;
 }
 
 /**
  * Genera una respuesta usando OpenAI
  */
 export async function generateAIResponse(options: GenerateResponseOptions): Promise<string> {
-  const { config, context, miniTasks } = options;
+  const { config, context } = options;
 
-  // Primero verificar si hay una mini tarea que responda
-  const miniTaskResponse = checkMiniTasks(context.messageText, miniTasks);
-  if (miniTaskResponse) {
-    return miniTaskResponse;
-  }
-
-  // Si no hay mini tarea, usar OpenAI
   const apiKey = config.openai_api_key || process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -149,7 +120,7 @@ function buildSystemPrompt(config: BotConfig): string {
 - Si no tienes información sobre algo que te preguntan, admítelo honestamente
 - NO asumas datos, horarios, precios, productos o servicios que no se mencionaron
 - Si la información solicitada no está disponible, responde algo como: "No tengo esa información disponible en este momento. ¿Puedo ayudarte con algo más?"
-- Solo proporciona datos que estén explícitamente mencionados en el contexto del negocio o en las mini tareas configuradas`;
+- Solo proporciona datos que estén explícitamente mencionados en el contexto del negocio`;
   } else {
     prompt += `- Si no estás seguro de algo, admítelo y ofrece alternativas`;
   }

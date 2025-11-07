@@ -1,7 +1,7 @@
 import { Message, Client } from 'whatsapp-web.js';
 import { createClient } from '@/lib/supabase/server';
 import { generateAIResponse, validateOpenAIConfig } from '@/lib/openai/client';
-import { BotConfig, MiniTask, OrderConfig } from '@/types';
+import { BotConfig, OrderConfig } from '@/types';
 import OpenAI from 'openai';
 
 interface MessageHandlerConfig {
@@ -53,14 +53,6 @@ export async function handleIncomingMessage(
       return;
     }
 
-    // Obtener mini tareas activas
-    const { data: miniTasks } = await supabase
-      .from('mini_tasks')
-      .select('*')
-      .eq('bot_config_id', botConfig.id)
-      .eq('is_active', true)
-      .order('priority', { ascending: false });
-
     // Generar respuesta
     const messageText = message.body;
     const senderNumber = message.from;
@@ -83,7 +75,6 @@ export async function handleIncomingMessage(
           messageText,
           conversationHistory,
         },
-        miniTasks: miniTasks || [],
       });
 
       // Verificar si se pudo generar una respuesta
@@ -124,11 +115,7 @@ export async function handleIncomingMessage(
     await message.reply(response!);
 
     // Registrar en la base de datos
-    const wasMiniTask = miniTasks?.some(task =>
-      messageText.toLowerCase().includes(task.trigger_keyword.toLowerCase())
-    ) || false;
-
-    await logMessage(userId, message, response!, wasMiniTask, false);
+    await logMessage(userId, message, response!, false);
 
     // Detectar y procesar pedidos si está habilitado
     await detectAndProcessOrder(
@@ -176,7 +163,6 @@ async function logMessage(
   userId: string,
   message: Message,
   botResponse: string | null,
-  wasAutomated: boolean,
   wasPaused: boolean
 ): Promise<void> {
   try {
@@ -191,7 +177,6 @@ async function logMessage(
       sender_number: contact.number || message.from,
       message_text: message.body,
       bot_response: wasPaused ? null : botResponse,
-      was_automated: wasAutomated,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

@@ -45,15 +45,6 @@ export interface BusinessInfo {
   phone: string;
 }
 
-export interface MiniTask {
-  id: string;
-  bot_config_id: string;
-  trigger_keyword: string;
-  response_text: string;
-  priority: number;
-  is_active: boolean;
-  created_at: string;
-}
 
 export interface ChatMetrics {
   id: string;
@@ -72,7 +63,6 @@ export interface MessageLog {
   sender_number: string;
   message_text: string;
   bot_response: string | null;
-  was_automated: boolean;
   timestamp: string;
 }
 
@@ -113,12 +103,6 @@ export interface BotConfigFormData {
   };
 }
 
-export interface MiniTaskFormData {
-  triggerKeyword: string;
-  responseText: string;
-  priority: number;
-  isActive: boolean;
-}
 
 // API Response Types
 export interface ApiResponse<T = any> {

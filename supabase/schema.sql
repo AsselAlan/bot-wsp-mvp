@@ -40,16 +40,6 @@ CREATE TABLE IF NOT EXISTS public.bot_configs (
   UNIQUE(user_id)
 );
 
--- Tabla: mini_tasks
-CREATE TABLE IF NOT EXISTS public.mini_tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  bot_config_id UUID NOT NULL REFERENCES public.bot_configs(id) ON DELETE CASCADE,
-  trigger_keyword TEXT NOT NULL,
-  response_text TEXT NOT NULL,
-  priority INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Tabla: chat_metrics
 CREATE TABLE IF NOT EXISTS public.chat_metrics (
@@ -71,7 +61,6 @@ CREATE TABLE IF NOT EXISTS public.message_logs (
   sender_number TEXT NOT NULL,
   message_text TEXT NOT NULL,
   bot_response TEXT,
-  was_automated BOOLEAN DEFAULT FALSE,
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -92,8 +81,6 @@ CREATE TABLE IF NOT EXISTS public.unanswered_messages (
 -- Índices para mejor rendimiento
 CREATE INDEX IF NOT EXISTS idx_whatsapp_connections_user_id ON public.whatsapp_connections(user_id);
 CREATE INDEX IF NOT EXISTS idx_bot_configs_user_id ON public.bot_configs(user_id);
-CREATE INDEX IF NOT EXISTS idx_mini_tasks_bot_config_id ON public.mini_tasks(bot_config_id);
-CREATE INDEX IF NOT EXISTS idx_mini_tasks_trigger ON public.mini_tasks(trigger_keyword) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_chat_metrics_user_date ON public.chat_metrics(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_message_logs_user_id ON public.message_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_message_logs_timestamp ON public.message_logs(timestamp DESC);
