@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Bot, TrendingUp, Wifi } from "lucide-react";
+import { BotStatusToggle } from "@/components/dashboard/BotStatusToggle";
 
 export default function DashboardPage() {
   // TODO: Estos datos vendrán de Supabase
@@ -94,6 +95,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Bot Status Toggle */}
+      <BotStatusToggle />
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">

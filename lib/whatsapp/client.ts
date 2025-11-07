@@ -1,4 +1,5 @@
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import { Client, LocalAuth, Message } from 'whatsapp-web.js';
+import { handleIncomingMessage } from './messageHandler';
 
 // Store para mantener las instancias de clientes por usuario
 const clients = new Map<string, Client>();
@@ -11,6 +12,7 @@ export interface WhatsAppClientConfig {
   onQR?: (qr: string) => void;
   onReady?: () => void;
   onDisconnected?: () => void;
+  onMessage?: (message: Message) => void;
 }
 
 /**
@@ -24,7 +26,7 @@ export function getWhatsAppClient(userId: string): Client | null {
  * Inicializa un nuevo cliente de WhatsApp
  */
 export async function initializeWhatsAppClient(config: WhatsAppClientConfig): Promise<Client> {
-  const { userId, onQR, onReady, onDisconnected } = config;
+  const { userId, onQR, onReady, onDisconnected, onMessage } = config;
 
   // Si ya existe un cliente para este usuario, lo retornamos
   let client = clients.get(userId);
@@ -89,6 +91,23 @@ export async function initializeWhatsAppClient(config: WhatsAppClientConfig): Pr
     qrCodes.delete(userId);
     if (onDisconnected) {
       onDisconnected();
+    }
+  });
+
+  // Evento: Mensaje recibido
+  client.on('message', async (message: Message) => {
+    console.log(`Mensaje recibido de ${message.from} para usuario ${userId}`);
+
+    // Manejar el mensaje
+    try {
+      await handleIncomingMessage(message, { userId });
+
+      // Callback opcional
+      if (onMessage) {
+        onMessage(message);
+      }
+    } catch (error) {
+      console.error('Error al manejar mensaje:', error);
     }
   });
 
