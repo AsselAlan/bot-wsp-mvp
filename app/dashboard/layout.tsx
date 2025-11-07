@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
@@ -58,6 +58,15 @@ export default function DashboardLayout({
               >
                 <Wifi className="h-4 w-4" />
                 Conexión
+              </Button>
+            </Link>
+            <Link href="/dashboard/unanswered">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+              >
+                <AlertCircle className="h-4 w-4" />
+                Mensajes Sin Responder
               </Button>
             </Link>
             <Link href="/dashboard/config">

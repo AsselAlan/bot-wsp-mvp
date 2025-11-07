@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, AlertCircle, CheckCircle2, Bell } from 'lucide-react';
 import { BotConfig, BusinessInfo } from '@/types';
 
 export function BotConfigForm() {
@@ -27,6 +28,15 @@ export function BotConfigForm() {
   const [openaiModel, setOpenaiModel] = useState('gpt-3.5-turbo');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [temperature, setTemperature] = useState([0.7]);
+  const [notificationNumber, setNotificationNumber] = useState('');
+  const [enableNotifications, setEnableNotifications] = useState(false);
+
+  // Nuevos campos de configuración de prompt
+  const [tone, setTone] = useState<'formal' | 'casual' | 'friendly'>('friendly');
+  const [useEmojis, setUseEmojis] = useState<'never' | 'moderate' | 'frequent'>('moderate');
+  const [strictMode, setStrictMode] = useState(true);
+  const [responseLength, setResponseLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [customInstructions, setCustomInstructions] = useState('');
 
   useEffect(() => {
     loadConfig();
@@ -49,6 +59,15 @@ export function BotConfigForm() {
         setOpenaiModel(config.openai_model);
         setOpenaiApiKey(config.openai_api_key || '');
         setTemperature([config.temperature]);
+        setNotificationNumber(config.notification_number || '');
+        setEnableNotifications(config.enable_unanswered_notifications || false);
+
+        // Cargar nuevos campos de configuración de prompt
+        setTone(config.tone || 'friendly');
+        setUseEmojis(config.use_emojis || 'moderate');
+        setStrictMode(config.strict_mode ?? true);
+        setResponseLength(config.response_length || 'medium');
+        setCustomInstructions(config.custom_instructions || '');
       }
     } catch (err) {
       setError('Error al cargar configuración');
@@ -74,7 +93,14 @@ export function BotConfigForm() {
         },
         openai_model: openaiModel,
         openai_api_key: openaiApiKey || null,
-        temperature: temperature[0]
+        temperature: temperature[0],
+        notification_number: notificationNumber || null,
+        enable_unanswered_notifications: enableNotifications,
+        tone: tone,
+        use_emojis: useEmojis,
+        strict_mode: strictMode,
+        response_length: responseLength,
+        custom_instructions: customInstructions
       };
 
       const response = await fetch('/api/bot/config', {
@@ -245,6 +271,131 @@ export function BotConfigForm() {
               0 = Más preciso y consistente | 2 = Más creativo y variado
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuración de Comportamiento del Bot */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Comportamiento del Bot</CardTitle>
+          <CardDescription>
+            Personaliza cómo responde el bot a los mensajes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="tone">Tono de las Respuestas</Label>
+            <Select value={tone} onValueChange={(value: any) => setTone(value)}>
+              <SelectTrigger id="tone">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="formal">Formal - Profesional y técnico</SelectItem>
+                <SelectItem value="casual">Casual - Relajado y coloquial</SelectItem>
+                <SelectItem value="friendly">Amigable - Cálido pero profesional</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="useEmojis">Uso de Emojis</Label>
+            <Select value={useEmojis} onValueChange={(value: any) => setUseEmojis(value)}>
+              <SelectTrigger id="useEmojis">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="never">Nunca - Sin emojis</SelectItem>
+                <SelectItem value="moderate">Moderado - 1-2 emojis por mensaje</SelectItem>
+                <SelectItem value="frequent">Frecuente - Varios emojis expresivos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="responseLength">Longitud de Respuestas</Label>
+            <Select value={responseLength} onValueChange={(value: any) => setResponseLength(value)}>
+              <SelectTrigger id="responseLength">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="short">Corta - 1-2 oraciones</SelectItem>
+                <SelectItem value="medium">Media - 2-4 oraciones</SelectItem>
+                <SelectItem value="long">Larga - Respuestas detalladas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="strictMode">Modo Estricto</Label>
+              <p className="text-xs text-muted-foreground">
+                El bot NO inventará información que no esté en el contexto
+              </p>
+            </div>
+            <Switch
+              id="strictMode"
+              checked={strictMode}
+              onCheckedChange={setStrictMode}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="customInstructions">Instrucciones Personalizadas (Opcional)</Label>
+            <Textarea
+              id="customInstructions"
+              value={customInstructions}
+              onChange={(e) => setCustomInstructions(e.target.value)}
+              placeholder="Agrega instrucciones adicionales específicas para tu bot..."
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Ejemplo: &quot;Siempre menciona que tenemos envío gratis en pedidos mayores a $50&quot;
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notificaciones de Mensajes Sin Responder */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notificaciones de Mensajes Sin Responder
+          </CardTitle>
+          <CardDescription>
+            Recibe alertas por WhatsApp cuando el bot no pueda responder un mensaje
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="enableNotifications">Activar Notificaciones</Label>
+              <p className="text-xs text-muted-foreground">
+                Enviar alertas cuando hay mensajes sin responder
+              </p>
+            </div>
+            <Switch
+              id="enableNotifications"
+              checked={enableNotifications}
+              onCheckedChange={setEnableNotifications}
+            />
+          </div>
+
+          {enableNotifications && (
+            <div>
+              <Label htmlFor="notificationNumber">Número para Notificaciones</Label>
+              <Input
+                id="notificationNumber"
+                value={notificationNumber}
+                onChange={(e) => setNotificationNumber(e.target.value)}
+                placeholder="+5491112345678"
+                type="tel"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Formato: Código de país + número (ej: +5491112345678 para Argentina)
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

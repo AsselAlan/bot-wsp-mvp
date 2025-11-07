@@ -1,16 +1,43 @@
-# WhatsApp Bot App - MVP
+# WhatsApp Bot App - Bot Inteligente para Negocios
 
-Aplicación web para gestionar un bot de WhatsApp con configuración personalizable, integración con OpenAI y métricas en tiempo real.
+Plataforma completa para gestionar un bot de WhatsApp con inteligencia artificial, respuestas automáticas, sistema de pausa y detección de mensajes no respondidos.
 
 ## 🎯 Objetivo
 
-Crear una plataforma que permita a cualquier negocio tener un asistente virtual en WhatsApp sin necesidad de conocimientos técnicos avanzados.
+Crear una plataforma que permita a cualquier negocio tener un asistente virtual inteligente en WhatsApp, con capacidad de aprendizaje y mejora continua basada en interacciones reales.
+
+## ✨ Características Principales
+
+### Bot Inteligente
+- 🤖 **Integración con OpenAI** - Respuestas inteligentes usando GPT-3.5, GPT-4, GPT-4 Turbo, GPT-4o
+- 🎯 **Respuestas Automáticas** - Sistema de respuestas basadas en palabras clave con prioridades
+- 📝 **Contexto Personalizable** - Define la personalidad y rol del bot
+- 🔄 **Historial de Conversación** - El bot recuerda los últimos mensajes para contexto
+
+### Control Total
+- ⏸️ **Sistema de Pausa** - Pausa/reanuda el bot desde el dashboard
+- 📊 **Dashboard de Métricas** - Visualiza estadísticas en tiempo real
+- 🔌 **Conexión WhatsApp** - Conecta tu WhatsApp mediante código QR
+
+### Sistema de Aprendizaje
+- 🚨 **Detección de Mensajes No Respondidos** - Identifica mensajes que el bot no pudo responder
+- 📱 **Notificaciones por WhatsApp** - Recibe alertas cuando hay mensajes sin responder
+- 📈 **Análisis de Tendencias** - Identifica los temas más consultados sin respuesta
+- 🎓 **Mejora Continua** - Crea nuevas respuestas basadas en consultas reales
+
+### Información del Negocio
+- 🏢 **Datos del Negocio** - Nombre, horarios, dirección, teléfono
+- 🌐 **Redes Sociales** - Facebook, Instagram, Twitter, WhatsApp Business, Website
+- 📋 **Respuestas del Sistema** - Respuestas automáticas basadas en info del negocio
 
 ## 📚 Documentación
 
 - **[SETUP.md](./SETUP.md)** - Guía completa de configuración e instalación
-- **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - Plan detallado de implementación por fases
-- **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - Estado actual del proyecto y próximos pasos
+- **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Configuración de Supabase paso a paso
+- **[FEATURES.md](./FEATURES.md)** - Detalle completo de todas las funcionalidades
+- **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - Plan de mejoras futuras
+- **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - Estado actual del proyecto
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Solución de problemas comunes
 
 ## 🚀 Quick Start
 
@@ -22,7 +49,7 @@ npm install
 
 ### 2. Configurar Variables de Entorno
 
-Copia `.env.example` a `.env.local` y completa las variables:
+Copia `.env.example` a `.env.local` y completa:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=tu-url-de-supabase
@@ -37,6 +64,8 @@ OPENAI_API_KEY=tu-openai-api-key
 2. Abre el **SQL Editor**
 3. Ejecuta el contenido de `supabase/schema.sql`
 
+Ver [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) para guía detallada.
+
 ### 4. Iniciar Desarrollo
 
 ```bash
@@ -48,10 +77,11 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 ## 📦 Stack Tecnológico
 
 ### Frontend
-- **Next.js 14** - Framework React con App Router
+- **Next.js 16** - Framework React con App Router
 - **TypeScript** - Type safety
-- **Tailwind CSS** - Estilos
+- **Tailwind CSS 4** - Estilos
 - **shadcn/ui** - Componentes UI
+- **Lucide React** - Iconos
 
 ### Backend
 - **Supabase** - Base de datos PostgreSQL + Auth + Realtime
@@ -66,38 +96,66 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 ```
 whatsapp-bot-app/
-├── app/                      # Next.js App Router
-│   ├── (auth)/              # Rutas de autenticación
+├── app/                           # Next.js App Router
+│   ├── (auth)/                   # Rutas de autenticación
 │   │   ├── login/
 │   │   └── register/
-│   ├── dashboard/           # Dashboard principal
-│   │   ├── page.tsx        # Métricas y estado
-│   │   ├── connection/     # Conexión WhatsApp + QR
-│   │   └── config/         # Configuración del bot
-│   └── api/                # API Routes
-│       ├── whatsapp/       # Endpoints de WhatsApp
-│       └── bot/            # Endpoints del bot
+│   ├── dashboard/                # Dashboard principal
+│   │   ├── page.tsx             # Métricas y estado
+│   │   ├── connection/          # Conexión WhatsApp + QR
+│   │   ├── config/              # Configuración del bot
+│   │   └── unanswered/          # Mensajes sin responder
+│   └── api/                      # API Routes
+│       ├── whatsapp/            # Endpoints de WhatsApp
+│       │   ├── connect/
+│       │   ├── qr/
+│       │   └── status/
+│       └── bot/                 # Endpoints del bot
+│           ├── config/
+│           ├── pause/
+│           ├── respond/
+│           └── unanswered/
 ├── components/
-│   ├── dashboard/          # Componentes del dashboard
-│   ├── config/             # Componentes de configuración
-│   └── ui/                 # shadcn/ui components
+│   ├── dashboard/               # Componentes del dashboard
+│   │   ├── MetricsCard.tsx
+│   │   ├── QRDisplay.tsx
+│   │   ├── ConnectionStatus.tsx
+│   │   └── BotStatusToggle.tsx
+│   ├── config/                  # Componentes de configuración
+│   │   ├── BotConfigForm.tsx
+│   │   └── AutoResponsesList.tsx
+│   ├── unanswered/             # Componentes de mensajes sin responder
+│   │   └── UnansweredMessagesList.tsx
+│   └── ui/                      # shadcn/ui components
 ├── lib/
-│   ├── supabase/          # Clientes de Supabase
-│   ├── whatsapp/          # Cliente de WhatsApp
-│   └── openai/            # Cliente de OpenAI
-└── types/                 # TypeScript types
+│   ├── supabase/               # Clientes de Supabase
+│   ├── whatsapp/               # Cliente de WhatsApp
+│   │   ├── client.ts
+│   │   └── messageHandler.ts
+│   └── openai/                 # Cliente de OpenAI
+│       └── client.ts
+└── types/                      # TypeScript types
 ```
 
 ## 🗄️ Base de Datos
 
-### Tablas
+### Tablas Principales
 
-- **users** - Información de usuarios
-- **whatsapp_connections** - Conexiones de WhatsApp
-- **bot_configs** - Configuración del bot
-- **mini_tasks** - Tareas automáticas basadas en keywords
+- **users** - Información de usuarios (Supabase Auth)
+- **whatsapp_connections** - Conexiones activas de WhatsApp
+- **bot_configs** - Configuración del bot por usuario
+  - Contexto principal
+  - Información del negocio
+  - Redes sociales
+  - Configuración de OpenAI
+  - Estado de pausa (is_active)
+  - Número de notificaciones
+- **auto_responses** (antes mini_tasks) - Respuestas automáticas
+  - Respuestas del sistema (is_system: true)
+  - Respuestas personalizadas (is_system: false)
 - **chat_metrics** - Métricas diarias de chats
 - **message_logs** - Registro completo de mensajes
+- **unanswered_messages** - Mensajes que el bot no pudo responder
 
 ### Características
 
@@ -107,20 +165,27 @@ whatsapp-bot-app/
 - ✅ Triggers para updated_at
 - ✅ Funciones para métricas automáticas
 
-## 🎨 Funcionalidades del MVP
+## 🎨 Funcionalidades Implementadas
 
-### 1. Dashboard Principal
-- Métricas en tiempo real
-- Estado de conexión de WhatsApp
-- Total de chats y respuestas del bot
+### 1. Autenticación y Seguridad
+- Sistema completo de login/register con Supabase Auth
+- Protección de rutas con middleware
+- Row Level Security en base de datos
 
 ### 2. Conexión WhatsApp
-- Generar código QR para vincular
-- Ver estado de conexión
+- Generación de código QR para vincular WhatsApp
+- Estado de conexión en tiempo real
+- Persistencia de sesión
 - Información del número conectado
-- Desconectar WhatsApp
+- Desconexión manual
 
-### 3. Configuración del Bot
+### 3. Dashboard Principal
+- Métricas en tiempo real (chats totales, chats del día, respuestas del bot)
+- Estado de conexión de WhatsApp
+- Control de pausa/reanudación del bot
+- Navegación intuitiva
+
+### 4. Configuración del Bot
 
 #### Contexto Principal
 Define la personalidad y rol del bot:
@@ -132,62 +197,190 @@ Debes ser amable y ayudar a tomar pedidos.
 #### Información del Negocio
 - Nombre del negocio
 - Horarios de atención
-- Dirección
+- Dirección física
 - Teléfono de contacto
+- Redes sociales (Facebook, Instagram, Twitter, WhatsApp Business, Website)
 
-#### Mini Tareas
-Respuestas automáticas basadas en palabras clave:
-- **Trigger:** "ubicación" → Respuesta: "Estamos en Calle 123..."
-- **Trigger:** "horario" → Respuesta: "Atendemos de 10am a 10pm..."
+#### Respuestas Automáticas
+Dos tipos de respuestas:
+
+**A) Respuestas del Sistema** (generadas automáticamente):
+- Basadas en información del negocio
+- Se crean/actualizan automáticamente
+- No se pueden eliminar, solo editar
+- Ejemplos: horario, dirección, teléfono, redes sociales
+
+**B) Respuestas Personalizadas**:
+- Creadas manualmente por el usuario
+- Basadas en palabras clave con prioridades
+- CRUD completo (crear, editar, eliminar)
+- Ejemplos: precios, menú, promociones
 
 #### Configuración OpenAI
-- Selección de modelo (GPT-3.5 / GPT-4)
-- API Key personalizada
-- Temperatura del modelo (creatividad)
+- Selección de modelo (GPT-3.5, GPT-4, GPT-4 Turbo, GPT-4o, GPT-4o mini)
+- API Key personalizada o global
+- Temperatura del modelo (0-2, creatividad)
+- Límite de 500 tokens por respuesta
 
-## 🔄 Flujo de Funcionamiento
+### 5. Sistema de Pausa
+- Pausar/reanudar el bot desde el dashboard
+- Estado visual claro (Play/Pause icon)
+- El bot sigue registrando mensajes cuando está pausado
+- No responde mensajes mientras está pausado
 
-### Conexión
+### 6. Procesamiento Inteligente de Mensajes
+
+#### Flujo de Procesamiento:
 ```
-Usuario → Genera QR → Escanea con WhatsApp → Sesión guardada en Supabase
+1. Mensaje recibido en WhatsApp
+   ↓
+2. Verificar si bot está pausado
+   ↓ (si activo)
+3. Buscar coincidencia en Respuestas Automáticas (por prioridad)
+   ↓ (si no hay match)
+4. Obtener historial de conversación (últimos 5 mensajes)
+   ↓
+5. Construir prompt con contexto del negocio
+   ↓
+6. Enviar a OpenAI
+   ↓
+7. Recibir respuesta
+   ↓
+8. Verificar si la respuesta es válida
+   ↓ (si es válida)
+9. Enviar respuesta al cliente
+   ↓
+10. Registrar en message_logs
+    ↓
+11. Actualizar chat_metrics
 ```
 
-### Procesamiento de Mensajes
+### 7. Sistema de Mensajes No Respondidos
+
+Cuando el bot **NO** puede responder:
+1. ✅ Guarda el mensaje en `unanswered_messages`
+2. ✅ NO responde al cliente (silencio)
+3. ✅ Envía notificación al número configurado por WhatsApp
+4. ✅ Registra la razón (fuera de contexto, sin coincidencia, error)
+
+**Dashboard de Mensajes Sin Responder:**
+- Lista completa de mensajes no respondidos
+- Filtros: Todos / No revisados
+- Información: teléfono, mensaje, fecha, razón
+- Estadísticas: total, % sin responder, más frecuentes
+- Marcar como revisado
+- Identificar patrones para crear nuevas respuestas
+
+## 🔄 Flujo Completo de Funcionamiento
+
+### Usuario envía: "¿Cuál es el horario?"
+
 ```
-Mensaje WhatsApp
-    ↓
-Verificar Mini Tareas
-    ↓ (No match)
-Construir Prompt (Contexto + Business Info + Mensaje)
-    ↓
-OpenAI API
-    ↓
-Respuesta enviada por WhatsApp
-    ↓
-Log guardado + Métricas actualizadas
+1. WhatsApp recibe mensaje
+2. messageHandler.ts procesa
+3. Verifica si bot está activo (is_active)
+4. Busca en auto_responses:
+   - Encuentra: trigger="horario" → response="Lun-Vie 9-18hs"
+5. Envía respuesta inmediata
+6. Registra en message_logs
+7. Actualiza chat_metrics
+```
+
+### Usuario envía: "¿Tienen gluten free?"
+
+```
+1. WhatsApp recibe mensaje
+2. messageHandler.ts procesa
+3. Verifica si bot está activo
+4. Busca en auto_responses → No encuentra match
+5. Obtiene últimos 5 mensajes de contexto
+6. Construye prompt:
+   - "Eres asistente de [Pizzería]"
+   - "Nombre: [nombre], Horario: [horario]..."
+   - "Conversación previa: [últimos mensajes]"
+   - "Usuario pregunta: ¿Tienen gluten free?"
+7. OpenAI genera respuesta contextual
+8. Verifica que la respuesta esté en contexto
+9. Envía respuesta al usuario
+10. Registra todo en BD
+```
+
+### Usuario envía: "¿Quién ganó el mundial?"
+
+```
+1. WhatsApp recibe mensaje
+2. messageHandler.ts procesa
+3. Verifica si bot está activo
+4. Busca en auto_responses → No encuentra match
+5. Envía a OpenAI con prompt estricto
+6. OpenAI detecta que está fuera de contexto
+7. Bot NO responde nada al usuario (silencio)
+8. Guarda en unanswered_messages:
+   - reason: "out_of_context"
+9. Envía notificación al dueño:
+   "🚨 Mensaje sin responder
+   De: +549351123456
+   Mensaje: ¿Quién ganó el mundial?
+   Fecha: 07/11/2024 15:30"
+10. Dashboard muestra en sección "Mensajes Sin Responder"
 ```
 
 ## 📊 Estado Actual del Proyecto
 
 ### ✅ Fase 1: Setup Base - COMPLETADA
+- Proyecto Next.js 16 configurado
+- Tailwind CSS 4 + shadcn/ui
+- Estructura de carpetas
+- Tipos TypeScript
+- Configuración de Supabase
+- Schema de base de datos completo
 
-- [x] Proyecto Next.js configurado
-- [x] Tailwind CSS + shadcn/ui
-- [x] Estructura de carpetas
-- [x] Tipos TypeScript
-- [x] Configuración de Supabase
-- [x] Schema de base de datos
-- [x] Documentación completa
+### ✅ Fase 2: Conexión WhatsApp - COMPLETADA
+- Cliente WhatsApp con whatsapp-web.js
+- Generación de QR code
+- Página de conexión funcional
+- Persistencia de sesión
+- Estados en tiempo real
 
-### 🚧 Próximas Fases
+### ✅ Fase 3: Dashboard y Métricas - COMPLETADA
+- Dashboard principal con métricas
+- Componentes de visualización
+- Integración con Supabase
+- Actualización en tiempo real
 
-- **Fase 2:** Conexión WhatsApp
-- **Fase 3:** Dashboard y Métricas
-- **Fase 4:** Configuración del Bot
-- **Fase 5:** Integración OpenAI
-- **Fase 6:** Testing y Deploy
+### ✅ Fase 4: Configuración del Bot - COMPLETADA
+- Formulario completo de configuración
+- Sistema de respuestas automáticas
+- Respuestas del sistema (auto-generadas)
+- CRUD completo de respuestas personalizadas
+- Configuración de OpenAI
 
-Ver [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) para detalles.
+### ✅ Fase 5: Integración OpenAI + Pausa + Mensajes Sin Responder - COMPLETADA
+- Cliente de OpenAI funcional
+- Procesador de mensajes con contexto
+- Sistema de respuestas automáticas por prioridad
+- Historial de conversación
+- Sistema de pausa del bot
+- Detección de mensajes no respondidos
+- Notificaciones por WhatsApp
+- Dashboard de mensajes sin responder
+- Registro completo en BD
+- Actualización de métricas
+
+### 🔜 Próximas Mejoras (Roadmap)
+
+Ver [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) para el roadmap completo.
+
+**Próximas funcionalidades planificadas:**
+- Sistema de plantillas por rubro (restaurante, clínica, e-commerce, etc.)
+- Base de conocimiento avanzada (CSV, PDF, scraping web)
+- Múltiples números de WhatsApp por usuario
+- Respuestas multimedia (imágenes, videos, documentos)
+- Integración con calendarios (Google Calendar, Calendly)
+- Sistema de turnos y reservas
+- Analytics avanzados y gráficas
+- A/B testing de respuestas
+- Exportación de datos
 
 ## 🛠️ Comandos Disponibles
 
@@ -208,41 +401,51 @@ npx shadcn@latest add [component]  # Añadir componentes
 ## 🔐 Seguridad
 
 - **RLS (Row Level Security)** en todas las tablas
-- **Políticas de acceso** por usuario
-- **API Keys encriptadas** en base de datos
+- **Políticas de acceso** por usuario (cada usuario solo ve sus datos)
+- **API Keys encriptadas** en variables de entorno
 - **Autenticación** manejada por Supabase Auth
-- **Variables de entorno** para secrets
+- **Validaciones** en frontend y backend
+- **Sanitización** de inputs del usuario
+- **Notificaciones seguras** solo al número configurado
 
 ## 📈 Escalabilidad Futura
 
 ### Para Diferentes Clientes
-- Templates por industria (pizzería, consultorio, e-commerce)
-- Sistema multi-tenant
+- Templates por industria (pizzería, consultorio, e-commerce, hotel, academia)
+- Sistema multi-tenant completo
 - Planes de suscripción (Free, Pro, Enterprise)
+- Límites por plan (mensajes/mes, números de WhatsApp, respuestas)
 
-### Features Adicionales
-- Múltiples números de WhatsApp
-- Respuestas multimedia (imágenes, videos)
-- Integraciones (CRM, calendarios)
-- Analytics avanzados
-- A/B testing de respuestas
-- Horarios de disponibilidad
-- Multi-agentes
+### Features Adicionales Planificadas
+- Múltiples números de WhatsApp por usuario
+- Respuestas multimedia (imágenes, videos, audio, documentos)
+- Integraciones externas (CRM, ERP, calendarios)
+- Sistema de turnos y reservas
+- Catálogo de productos con búsqueda
+- Proceso de checkout y pagos
+- Chatbot multiidioma
+- Analytics avanzados con gráficas
+- Exportación de reportes
+- API pública para integraciones
 
 ## 🐛 Troubleshooting
 
-### No se conecta a Supabase
-Verifica que las variables de entorno en `.env.local` sean correctas.
+Ver [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) para solución de problemas comunes.
 
-### QR Code no aparece
-Verifica que `whatsapp-web.js` esté instalado correctamente.
+### Problemas Comunes
 
-### El bot no responde
-1. Verifica la API key de OpenAI
-2. Verifica que la configuración del bot esté activa
+**No se conecta a Supabase:**
+- Verifica las variables de entorno en `.env.local`
+
+**QR Code no aparece:**
+- Espera 10-20 segundos (Puppeteer inicializa)
+- Verifica logs del servidor
+
+**El bot no responde:**
+1. Verifica que el bot esté activo (no pausado)
+2. Verifica la API key de OpenAI
 3. Revisa los logs en `message_logs`
-
-Ver [SETUP.md](./SETUP.md) para más soluciones.
+4. Revisa mensajes sin responder en el dashboard
 
 ## 📚 Recursos
 
@@ -251,10 +454,11 @@ Ver [SETUP.md](./SETUP.md) para más soluciones.
 - [OpenAI API Reference](https://platform.openai.com/docs)
 - [whatsapp-web.js Guide](https://wwebjs.dev/)
 - [shadcn/ui](https://ui.shadcn.com/)
+- [Tailwind CSS](https://tailwindcss.com/docs)
 
 ## 📝 Licencia
 
-Este proyecto es privado y está en desarrollo.
+Este proyecto es privado y está en desarrollo activo.
 
 ---
 
@@ -266,14 +470,18 @@ Este proyecto es privado y está en desarrollo.
 3. Sigue las convenciones de código
 4. Ejecuta `npm run type-check` antes de commit
 
-### Estructura de Branches
-- `main` - Producción
-- `develop` - Desarrollo
-- `feature/*` - Nuevas funcionalidades
-- `fix/*` - Correcciones
+### Estructura de Commits
+- `feat:` - Nueva funcionalidad
+- `fix:` - Corrección de bugs
+- `docs:` - Cambios en documentación
+- `refactor:` - Refactorización de código
+- `style:` - Cambios de formato
+- `test:` - Añadir tests
 
 ---
 
-**Estado:** 🟢 Fase 1 Completada - Listo para Fase 2
+**Estado:** 🟢 Fase 5 Completada - Bot Totalmente Funcional
 
-**Última actualización:** Noviembre 2025
+**Última actualización:** Noviembre 2024
+
+**Versión:** 1.0.0

@@ -25,6 +25,13 @@ export interface BotConfig {
   openai_api_key: string | null;
   temperature: number;
   is_active: boolean;
+  notification_number: string | null;
+  enable_unanswered_notifications: boolean;
+  tone: 'formal' | 'casual' | 'friendly';
+  use_emojis: 'never' | 'moderate' | 'frequent';
+  strict_mode: boolean;
+  response_length: 'short' | 'medium' | 'long';
+  custom_instructions: string;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +72,19 @@ export interface MessageLog {
   bot_response: string | null;
   was_automated: boolean;
   timestamp: string;
+}
+
+export interface UnansweredMessage {
+  id: string;
+  user_id: string;
+  chat_id: string;
+  sender_number: string;
+  message_text: string;
+  attempted_response: string | null;
+  reason: 'out_of_context' | 'no_match' | 'api_error' | 'paused';
+  is_reviewed: boolean;
+  created_at: string;
+  reviewed_at: string | null;
 }
 
 // Component Props Types
@@ -120,4 +140,19 @@ export interface MetricsResponse {
   totalChats: number;
   dailyChats: number;
   botResponses: number;
+}
+
+export interface UnansweredMessagesResponse {
+  messages: UnansweredMessage[];
+  stats: {
+    total: number;
+    unreviewedCount: number;
+    percentageUnanswered: number;
+  };
+}
+
+export interface UnansweredMessageListProps {
+  messages: UnansweredMessage[];
+  onMarkReviewed: (id: string) => Promise<void>;
+  isLoading?: boolean;
 }

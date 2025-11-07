@@ -1,10 +1,11 @@
-import { Message } from 'whatsapp-web.js';
+import { Message, Client } from 'whatsapp-web.js';
 import { createClient } from '@/lib/supabase/server';
 import { generateAIResponse, validateOpenAIConfig } from '@/lib/openai/client';
 import { BotConfig, MiniTask } from '@/types';
 
 interface MessageHandlerConfig {
   userId: string;
+  whatsappClient?: Client;
 }
 
 /**
@@ -62,31 +63,91 @@ export async function handleIncomingMessage(
     // Generar respuesta
     const messageText = message.body;
     const senderNumber = message.from;
+    const chat = await message.getChat();
 
-    const response = await generateAIResponse({
-      config: botConfig,
-      context: {
+    let response: string | null = null;
+    let errorReason: 'out_of_context' | 'no_match' | 'api_error' | 'paused' | null = null;
+
+    try {
+      // Obtener historial de conversación
+      const conversationHistory = await getConversationHistory(
+        userId,
+        chat.id._serialized
+      );
+
+      response = await generateAIResponse({
+        config: botConfig,
+        context: {
+          senderNumber,
+          messageText,
+          conversationHistory,
+        },
+        miniTasks: miniTasks || [],
+      });
+
+      // Verificar si se pudo generar una respuesta
+      if (!response || response.trim() === '') {
+        errorReason = 'no_match';
+      }
+    } catch (error) {
+      console.error('Error al generar respuesta con OpenAI:', error);
+      errorReason = 'api_error';
+    }
+
+    // Si hubo algún error o no hay respuesta, guardar como mensaje sin responder
+    if (errorReason) {
+      await saveUnansweredMessage(
+        userId,
+        chat.id._serialized,
         senderNumber,
         messageText,
-      },
-      miniTasks: miniTasks || [],
-    });
+        errorReason
+      );
 
-    // Enviar respuesta
-    await message.reply(response);
+      // Enviar notificación si está habilitado
+      if (config.whatsappClient && botConfig.enable_unanswered_notifications && botConfig.notification_number) {
+        await sendUnansweredNotification(
+          config.whatsappClient,
+          botConfig.notification_number,
+          senderNumber,
+          messageText
+        );
+      }
+
+      // Registrar mensaje sin respuesta
+      await logMessage(userId, message, null, false, false);
+      return;
+    }
+
+    // Enviar respuesta (response ya fue validado que no es null arriba)
+    await message.reply(response!);
 
     // Registrar en la base de datos
     const wasMiniTask = miniTasks?.some(task =>
       messageText.toLowerCase().includes(task.trigger_keyword.toLowerCase())
     ) || false;
 
-    await logMessage(userId, message, response, wasMiniTask, false);
+    await logMessage(userId, message, response!, wasMiniTask, false);
 
     // Actualizar métricas
     await updateMetrics(userId);
 
   } catch (error) {
     console.error('Error al manejar mensaje:', error);
+
+    // Intentar guardar como mensaje sin responder con error
+    try {
+      const chat = await message.getChat();
+      await saveUnansweredMessage(
+        config.userId,
+        chat.id._serialized,
+        message.from,
+        message.body,
+        'api_error'
+      );
+    } catch (saveError) {
+      console.error('No se pudo guardar mensaje sin responder:', saveError);
+    }
 
     // Intentar enviar mensaje de error al usuario
     try {
@@ -207,5 +268,65 @@ export async function getConversationHistory(
   } catch (error) {
     console.error('Error al obtener historial:', error);
     return [];
+  }
+}
+
+/**
+ * Guarda un mensaje sin responder en la base de datos
+ */
+async function saveUnansweredMessage(
+  userId: string,
+  chatId: string,
+  senderNumber: string,
+  messageText: string,
+  reason: 'out_of_context' | 'no_match' | 'api_error' | 'paused'
+): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    await supabase.from('unanswered_messages').insert({
+      user_id: userId,
+      chat_id: chatId,
+      sender_number: senderNumber,
+      message_text: messageText,
+      attempted_response: null,
+      reason: reason,
+      is_reviewed: false,
+    });
+
+    console.log(`Mensaje sin responder guardado. Razón: ${reason}`);
+  } catch (error) {
+    console.error('Error al guardar mensaje sin responder:', error);
+  }
+}
+
+/**
+ * Envía una notificación por WhatsApp al número configurado
+ */
+async function sendUnansweredNotification(
+  client: Client,
+  notificationNumber: string,
+  senderNumber: string,
+  messageText: string
+): Promise<void> {
+  try {
+    // Formatear el número de notificación (agregar @c.us si no lo tiene)
+    const formattedNumber = notificationNumber.includes('@c.us')
+      ? notificationNumber
+      : `${notificationNumber.replace(/[^\d]/g, '')}@c.us`;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('es-AR');
+    const timeStr = now.toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const notificationMessage = `🚨 *Mensaje sin responder*\n\nDe: ${senderNumber}\nMensaje: ${messageText}\nFecha: ${dateStr} ${timeStr}\n\nRevisa el dashboard para crear una respuesta.`;
+
+    await client.sendMessage(formattedNumber, notificationMessage);
+    console.log(`Notificación enviada a ${notificationNumber}`);
+  } catch (error) {
+    console.error('Error al enviar notificación:', error);
   }
 }

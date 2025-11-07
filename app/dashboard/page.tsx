@@ -1,100 +1,21 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Bot, TrendingUp, Wifi } from "lucide-react";
 import { BotStatusToggle } from "@/components/dashboard/BotStatusToggle";
+import { MetricsCards } from "@/components/dashboard/MetricsCards";
 
 export default function DashboardPage() {
-  // TODO: Estos datos vendrán de Supabase
-  const metrics = {
-    totalChats: 0,
-    dailyChats: 0,
-    botResponses: 0,
-    isConnected: false,
-  };
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Bienvenido a tu panel de control de WhatsApp Bot
-          </p>
-        </div>
-        <Badge variant={metrics.isConnected ? "default" : "secondary"} className="h-8">
-          <Wifi className="h-4 w-4 mr-1" />
-          {metrics.isConnected ? "Conectado" : "Desconectado"}
-        </Badge>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Bienvenido a tu panel de control de WhatsApp Bot
+        </p>
       </div>
-
-      {/* Alert Banner */}
-      {!metrics.isConnected && (
-        <Card className="bg-muted">
-          <CardHeader>
-            <CardTitle>Conecta tu WhatsApp</CardTitle>
-            <CardDescription>
-              Para comenzar a usar el bot, primero debes conectar tu cuenta de WhatsApp.
-              Ve a la sección de{" "}
-              <a href="/dashboard/connection" className="text-primary underline">
-                Conexión
-              </a>
-              {" "}para escanear el código QR.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
 
       {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Total Chats */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total de Chats
-            </CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalChats}</div>
-            <p className="text-xs text-muted-foreground">
-              Conversaciones totales
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Daily Chats */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Chats de Hoy
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.dailyChats}</div>
-            <p className="text-xs text-muted-foreground">
-              Conversaciones hoy
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Bot Responses */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Respuestas del Bot
-            </CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.botResponses}</div>
-            <p className="text-xs text-muted-foreground">
-              Respuestas automáticas hoy
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <MetricsCards />
 
       {/* Bot Status Toggle */}
       <BotStatusToggle />

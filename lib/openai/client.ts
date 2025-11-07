@@ -93,7 +93,7 @@ export async function generateAIResponse(options: GenerateResponseOptions): Prom
  * Construye el prompt del sistema basado en la configuración
  */
 function buildSystemPrompt(config: BotConfig): string {
-  const { main_context, business_info } = config;
+  const { main_context, business_info, tone, use_emojis, strict_mode, response_length, custom_instructions } = config;
 
   let prompt = main_context;
 
@@ -115,11 +115,54 @@ function buildSystemPrompt(config: BotConfig): string {
     }
   }
 
+  // Configuración de tono
+  const toneInstructions = {
+    formal: 'Mantén un tono formal y profesional en todas tus respuestas. Usa lenguaje técnico cuando sea apropiado y evita expresiones coloquiales.',
+    casual: 'Usa un tono casual y relajado, como si estuvieras hablando con un amigo. Puedes usar expresiones coloquiales apropiadas.',
+    friendly: 'Mantén un tono amigable y cálido, profesional pero accesible. Sé cordial sin ser demasiado informal.'
+  };
+
+  // Configuración de emojis
+  const emojiInstructions = {
+    never: 'NUNCA uses emojis en tus respuestas.',
+    moderate: 'Usa emojis ocasionalmente para hacer tus mensajes más amigables, pero con moderación (máximo 1-2 por mensaje).',
+    frequent: 'Usa emojis con frecuencia para hacer tus mensajes más expresivos y amigables.'
+  };
+
+  // Configuración de longitud de respuesta
+  const lengthInstructions = {
+    short: 'Mantén tus respuestas muy breves y concisas (1-2 oraciones máximo).',
+    medium: 'Proporciona respuestas de longitud moderada que sean informativas pero concisas (2-4 oraciones).',
+    long: 'Puedes dar respuestas más detalladas y explicativas cuando sea necesario.'
+  };
+
+  prompt += `\n\nInstrucciones de comportamiento:\n`;
+  prompt += `- Tono: ${toneInstructions[tone]}\n`;
+  prompt += `- Emojis: ${emojiInstructions[use_emojis]}\n`;
+  prompt += `- Longitud: ${lengthInstructions[response_length]}\n`;
+
+  // Modo estricto: no inventar información
+  if (strict_mode) {
+    prompt += `\n\nIMPORTANTE - Modo Estricto Activado:
+- NUNCA inventes información que no esté explícitamente en el contexto proporcionado arriba
+- Si no tienes información sobre algo que te preguntan, admítelo honestamente
+- NO asumas datos, horarios, precios, productos o servicios que no se mencionaron
+- Si la información solicitada no está disponible, responde algo como: "No tengo esa información disponible en este momento. ¿Puedo ayudarte con algo más?"
+- Solo proporciona datos que estén explícitamente mencionados en el contexto del negocio o en las mini tareas configuradas`;
+  } else {
+    prompt += `- Si no estás seguro de algo, admítelo y ofrece alternativas`;
+  }
+
+  // Instrucciones adicionales generales
   prompt += `\n\nInstrucciones adicionales:
-- Sé conciso y directo en tus respuestas
-- Mantén un tono amigable y profesional
-- Si no sabes algo, admítelo y ofrece alternativas
-- Las respuestas deben ser apropiadas para WhatsApp (evita formato muy complejo)`;
+- Las respuestas deben ser apropiadas para WhatsApp (evita formato muy complejo)
+- Mantén la conversación fluida y natural
+- Usa el historial de conversación para mantener contexto y evitar repetir información`;
+
+  // Agregar instrucciones personalizadas si existen
+  if (custom_instructions && custom_instructions.trim() !== '') {
+    prompt += `\n\nInstrucciones personalizadas adicionales:\n${custom_instructions}`;
+  }
 
   return prompt;
 }

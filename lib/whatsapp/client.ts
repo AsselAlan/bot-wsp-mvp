@@ -100,7 +100,10 @@ export async function initializeWhatsAppClient(config: WhatsAppClientConfig): Pr
 
     // Manejar el mensaje
     try {
-      await handleIncomingMessage(message, { userId });
+      await handleIncomingMessage(message, {
+        userId,
+        whatsappClient: client
+      });
 
       // Callback opcional
       if (onMessage) {

@@ -69,7 +69,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { main_context, business_info, openai_model, openai_api_key, temperature } = body;
+    const {
+      main_context,
+      business_info,
+      openai_model,
+      openai_api_key,
+      temperature,
+      notification_number,
+      enable_unanswered_notifications,
+      tone,
+      use_emojis,
+      strict_mode,
+      response_length,
+      custom_instructions
+    } = body;
 
     // Validaciones
     if (!main_context || main_context.trim().length === 0) {
@@ -110,7 +123,14 @@ export async function POST(request: NextRequest) {
         openai_model: openai_model || 'gpt-3.5-turbo',
         openai_api_key: openai_api_key || null,
         temperature: temperature || 0.7,
-        is_active: true
+        is_active: true,
+        notification_number: notification_number || null,
+        enable_unanswered_notifications: enable_unanswered_notifications || false,
+        tone: tone || 'friendly',
+        use_emojis: use_emojis || 'moderate',
+        strict_mode: strict_mode ?? true,
+        response_length: response_length || 'medium',
+        custom_instructions: custom_instructions || ''
       })
       .select()
       .single();
@@ -151,7 +171,21 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { main_context, business_info, openai_model, openai_api_key, temperature, is_active } = body;
+    const {
+      main_context,
+      business_info,
+      openai_model,
+      openai_api_key,
+      temperature,
+      is_active,
+      notification_number,
+      enable_unanswered_notifications,
+      tone,
+      use_emojis,
+      strict_mode,
+      response_length,
+      custom_instructions
+    } = body;
 
     const supabase = await createClient();
 
@@ -166,6 +200,13 @@ export async function PUT(request: NextRequest) {
     if (openai_api_key !== undefined) updateData.openai_api_key = openai_api_key;
     if (temperature !== undefined) updateData.temperature = temperature;
     if (is_active !== undefined) updateData.is_active = is_active;
+    if (notification_number !== undefined) updateData.notification_number = notification_number;
+    if (enable_unanswered_notifications !== undefined) updateData.enable_unanswered_notifications = enable_unanswered_notifications;
+    if (tone !== undefined) updateData.tone = tone;
+    if (use_emojis !== undefined) updateData.use_emojis = use_emojis;
+    if (strict_mode !== undefined) updateData.strict_mode = strict_mode;
+    if (response_length !== undefined) updateData.response_length = response_length;
+    if (custom_instructions !== undefined) updateData.custom_instructions = custom_instructions;
 
     // Actualizar configuración
     const { data, error } = await supabase

@@ -29,10 +29,12 @@ CREATE TABLE IF NOT EXISTS public.bot_configs (
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   main_context TEXT NOT NULL DEFAULT 'Eres un asistente virtual amable y servicial.',
   business_info JSONB DEFAULT '{"name": "", "hours": "", "address": "", "phone": ""}',
-  openai_model TEXT DEFAULT 'gpt-3.5-turbo' CHECK (openai_model IN ('gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo')),
+  openai_model TEXT DEFAULT 'gpt-3.5-turbo' CHECK (openai_model IN ('gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini')),
   openai_api_key TEXT,
   temperature DECIMAL(2, 1) DEFAULT 0.7 CHECK (temperature >= 0 AND temperature <= 2),
   is_active BOOLEAN DEFAULT TRUE,
+  notification_number TEXT,
+  enable_unanswered_notifications BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)
@@ -73,6 +75,20 @@ CREATE TABLE IF NOT EXISTS public.message_logs (
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabla: unanswered_messages
+CREATE TABLE IF NOT EXISTS public.unanswered_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  chat_id TEXT NOT NULL,
+  sender_number TEXT NOT NULL,
+  message_text TEXT NOT NULL,
+  attempted_response TEXT,
+  reason TEXT CHECK (reason IN ('out_of_context', 'no_match', 'api_error', 'paused')),
+  is_reviewed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ
+);
+
 -- Índices para mejor rendimiento
 CREATE INDEX IF NOT EXISTS idx_whatsapp_connections_user_id ON public.whatsapp_connections(user_id);
 CREATE INDEX IF NOT EXISTS idx_bot_configs_user_id ON public.bot_configs(user_id);
@@ -81,6 +97,9 @@ CREATE INDEX IF NOT EXISTS idx_mini_tasks_trigger ON public.mini_tasks(trigger_k
 CREATE INDEX IF NOT EXISTS idx_chat_metrics_user_date ON public.chat_metrics(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_message_logs_user_id ON public.message_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_message_logs_timestamp ON public.message_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_unanswered_messages_user_id ON public.unanswered_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_unanswered_messages_is_reviewed ON public.unanswered_messages(is_reviewed) WHERE is_reviewed = FALSE;
+CREATE INDEX IF NOT EXISTS idx_unanswered_messages_created_at ON public.unanswered_messages(created_at DESC);
 
 -- Función para actualizar updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -106,6 +125,7 @@ ALTER TABLE public.bot_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mini_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unanswered_messages ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para users
 CREATE POLICY "Users can view own data" ON public.users
@@ -194,6 +214,19 @@ CREATE POLICY "Users can view own message logs" ON public.message_logs
 CREATE POLICY "Users can insert own message logs" ON public.message_logs
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- Políticas para unanswered_messages
+CREATE POLICY "Users can view own unanswered messages" ON public.unanswered_messages
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own unanswered messages" ON public.unanswered_messages
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own unanswered messages" ON public.unanswered_messages
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own unanswered messages" ON public.unanswered_messages
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Función para crear usuario en public.users automáticamente
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -240,3 +273,4 @@ COMMENT ON TABLE public.bot_configs IS 'Configuración del bot de WhatsApp';
 COMMENT ON TABLE public.mini_tasks IS 'Tareas automáticas basadas en palabras clave';
 COMMENT ON TABLE public.chat_metrics IS 'Métricas diarias de chats';
 COMMENT ON TABLE public.message_logs IS 'Registro de mensajes y respuestas del bot';
+COMMENT ON TABLE public.unanswered_messages IS 'Mensajes que el bot no pudo responder';

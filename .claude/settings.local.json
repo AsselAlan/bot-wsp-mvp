@@ -10,7 +10,10 @@
       "Bash(npm uninstall:*)",
       "Bash(npx tsx:*)",
       "Bash(npm run dev:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(del \"c:\\Users\\Alan\\Desktop\\bot-wsp\\ULTIMO_CONTEXTO.md\")",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
