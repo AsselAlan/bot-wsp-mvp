@@ -172,7 +172,7 @@ export default function WorkflowsPage() {
       {/* Workflow Configuration Tabs */}
       {selectedTemplate && (
         <Tabs defaultValue="options" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className={`grid w-full max-w-md ${selectedTemplate.supports_orders ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="options">
               <Workflow className="h-4 w-4 mr-2" />
               Opciones
@@ -181,10 +181,12 @@ export default function WorkflowsPage() {
               <FileText className="h-4 w-4 mr-2" />
               Menú
             </TabsTrigger>
-            <TabsTrigger value="orders">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Pedidos
-            </TabsTrigger>
+            {selectedTemplate.supports_orders && (
+              <TabsTrigger value="orders">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Pedidos
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="options" className="mt-6">
@@ -241,37 +243,47 @@ export default function WorkflowsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="orders" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Pedidos</CardTitle>
-                <CardDescription>
-                  Configura cómo manejar los pedidos de tus clientes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="text-sm text-muted-foreground">
-                    <p className="mb-4">Opciones de pedidos configuradas:</p>
-                    <ul className="list-disc list-inside space-y-2">
-                      {templateOptions.enable_order_whatsapp && (
-                        <li>✓ Tomar pedidos por WhatsApp</li>
-                      )}
-                      {templateOptions.enable_order_redirect && (
-                        <li>✓ Redirigir a plataforma: {templateOptions.order_platform_url || 'No configurado'}</li>
-                      )}
-                      {templateOptions.minimum_order && (
-                        <li>✓ Monto mínimo: {templateOptions.minimum_order}</li>
-                      )}
-                      {!templateOptions.enable_order_whatsapp && !templateOptions.enable_order_redirect && (
-                        <li className="text-muted-foreground">No hay opciones de pedidos activadas</li>
-                      )}
-                    </ul>
+          {selectedTemplate.supports_orders && (
+            <TabsContent value="orders" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gestión de Pedidos</CardTitle>
+                  <CardDescription>
+                    Configura cómo manejar los pedidos de tus clientes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="text-sm text-muted-foreground">
+                      <p className="mb-4">Opciones de pedidos configuradas:</p>
+                      <ul className="list-disc list-inside space-y-2">
+                        {templateOptions.enable_order_whatsapp && (
+                          <li>✓ Tomar pedidos por WhatsApp</li>
+                        )}
+                        {templateOptions.enable_order_redirect && (
+                          <li>✓ Redirigir a plataforma: {templateOptions.order_platform_url || 'No configurado'}</li>
+                        )}
+                        {templateOptions.minimum_order && (
+                          <li>✓ Monto mínimo: {templateOptions.minimum_order}</li>
+                        )}
+                        {!templateOptions.enable_order_whatsapp && !templateOptions.enable_order_redirect && (
+                          <li className="text-muted-foreground">No hay opciones de pedidos activadas</li>
+                        )}
+                      </ul>
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                          💡 Configuración Avanzada
+                        </p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Para configurar zonas de delivery, métodos de pago y mensajes personalizados, ve a la página de <strong>Pedidos</strong> en el menú lateral.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       )}
 

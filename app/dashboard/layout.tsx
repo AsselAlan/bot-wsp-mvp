@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle, Sliders, Workflow, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,50 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const [supportsOrders, setSupportsOrders] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkIfTemplateSupportsOrders();
+  }, []);
+
+  const checkIfTemplateSupportsOrders = async () => {
+    try {
+      const supabase = createClient();
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Get bot config with template
+      const { data: botConfig } = await supabase
+        .from('bot_configs')
+        .select('selected_template_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!botConfig?.selected_template_id) {
+        setLoading(false);
+        return;
+      }
+
+      // Get template info
+      const { data: template } = await supabase
+        .from('business_templates')
+        .select('supports_orders')
+        .eq('id', botConfig.selected_template_id)
+        .single();
+
+      setSupportsOrders(template?.supports_orders || false);
+    } catch (error) {
+      console.error('Error checking template:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -69,15 +114,17 @@ export default function DashboardLayout({
                 Mensajes Sin Responder
               </Button>
             </Link>
-            <Link href="/dashboard/orders">
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                Pedidos
-              </Button>
-            </Link>
+            {supportsOrders && (
+              <Link href="/dashboard/orders">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Pedidos
+                </Button>
+              </Link>
+            )}
 
             {/* Separator */}
             <div className="my-2 border-t"></div>

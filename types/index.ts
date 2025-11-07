@@ -156,6 +156,7 @@ export interface BusinessTemplate {
   default_use_emojis: 'never' | 'moderate' | 'frequent';
   default_response_length: 'short' | 'medium' | 'long';
   default_strict_mode: boolean;
+  supports_orders: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
