@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle, Sliders, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
@@ -69,13 +69,26 @@ export default function DashboardLayout({
                 Mensajes Sin Responder
               </Button>
             </Link>
+
+            {/* Separator */}
+            <div className="my-2 border-t"></div>
+
             <Link href="/dashboard/config">
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2"
               >
-                <Settings className="h-4 w-4" />
-                Configuración
+                <Sliders className="h-4 w-4" />
+                Configuraciones
+              </Button>
+            </Link>
+            <Link href="/dashboard/workflows">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+              >
+                <Workflow className="h-4 w-4" />
+                Flujos de Trabajo
               </Button>
             </Link>
           </nav>

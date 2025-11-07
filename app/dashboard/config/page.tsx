@@ -10,9 +10,9 @@ export default function ConfigPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configuración del Bot</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Configuraciones Técnicas</h1>
         <p className="text-muted-foreground mt-1">
-          Personaliza el comportamiento y las respuestas de tu asistente virtual
+          Configura los aspectos técnicos del bot: modelo de IA, temperatura, notificaciones, etc.
         </p>
       </div>
 
