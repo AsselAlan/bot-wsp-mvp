@@ -220,3 +220,106 @@ export interface ApplyTemplateRequest {
   template_id: string;
   template_options?: Record<string, any>;
 }
+
+// Orders System Types
+export interface OrderItem {
+  producto: string;
+  cantidad: number;
+  precio?: number;
+  detalles?: string;
+}
+
+export interface DeliveryAddress {
+  calle: string;
+  numero: string;
+  piso_depto?: string;
+  barrio: string;
+  referencias?: string;
+  zona?: string;
+}
+
+export interface Order {
+  id: string;
+  user_id: string;
+  order_number: string;
+  status: 'pending' | 'confirmed' | 'preparing' | 'in_delivery' | 'delivered' | 'cancelled';
+
+  customer_name: string;
+  customer_phone: string;
+  customer_whatsapp_id: string;
+
+  items: OrderItem[];
+  delivery_address: DeliveryAddress;
+
+  payment_method: string | null;
+  payment_status: 'pending' | 'paid' | 'failed';
+
+  subtotal: number | null;
+  delivery_cost: number | null;
+  total: number;
+
+  estimated_delivery_time: string | null;
+  delivery_time: string | null;
+
+  customer_notes: string | null;
+  internal_notes: string | null;
+  conversation_snapshot: Record<string, any> | null;
+
+  created_at: string;
+  updated_at: string;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+}
+
+export interface DeliveryZone {
+  nombre: string;
+  costo: number;
+  activa: boolean;
+}
+
+export interface OrderConfig {
+  id: string;
+  user_id: string;
+
+  enable_order_taking: boolean;
+
+  require_customer_name: boolean;
+  require_delivery_address: boolean;
+  require_payment_method: boolean;
+
+  address_fields: {
+    calle: boolean;
+    numero: boolean;
+    barrio: boolean;
+    referencias: boolean;
+    piso_depto: boolean;
+  };
+
+  delivery_zones: DeliveryZone[];
+  payment_methods: string[];
+
+  order_confirmation_message: string;
+  missing_info_message: string;
+  out_of_zone_message: string;
+
+  auto_confirm_orders: boolean;
+  request_confirmation: boolean;
+
+  default_delivery_time: string;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOrderRequest {
+  customer_name: string;
+  customer_phone: string;
+  customer_whatsapp_id: string;
+  items: OrderItem[];
+  delivery_address: DeliveryAddress;
+  payment_method?: string;
+  total: number;
+  customer_notes?: string;
+  conversation_snapshot?: Record<string, any>;
+}
