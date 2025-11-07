@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/supabase/auth';
 import { createClient } from '@/lib/supabase/server';
+import { generateFullContext } from '@/lib/templates/template-builder';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,31 +71,51 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      main_context,
-      business_info,
-      openai_model,
       openai_api_key,
-      temperature,
       notification_number,
       enable_unanswered_notifications,
-      tone,
-      use_emojis,
-      strict_mode,
-      response_length,
       custom_instructions,
       selected_template_id,
       template_options
     } = body;
 
-    // Validaciones
-    if (!main_context || main_context.trim().length === 0) {
+    const supabase = await createClient();
+
+    // Si hay template seleccionado, generar contexto automáticamente
+    let generatedContext = '';
+    let templateDefaults: any = {};
+
+    if (selected_template_id && template_options) {
+      // Obtener template de la base de datos
+      const { data: template, error: templateError } = await supabase
+        .from('business_templates')
+        .select('*')
+        .eq('id', selected_template_id)
+        .single();
+
+      if (templateError || !template) {
+        return NextResponse.json(
+          { success: false, error: 'Template no encontrado' },
+          { status: 400 }
+        );
+      }
+
+      // Generar contexto completo automáticamente
+      generatedContext = generateFullContext(template, template_options, custom_instructions);
+
+      // Usar defaults de la plantilla para configuraciones técnicas
+      templateDefaults = {
+        tone: template.default_tone,
+        use_emojis: template.default_use_emojis,
+        response_length: template.default_response_length,
+        strict_mode: template.default_strict_mode,
+      };
+    } else {
       return NextResponse.json(
-        { success: false, error: 'El contexto principal es requerido' },
+        { success: false, error: 'Debes seleccionar una plantilla de negocio' },
         { status: 400 }
       );
     }
-
-    const supabase = await createClient();
 
     // Verificar si ya existe configuración
     const { data: existing } = await supabase
@@ -110,31 +131,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Crear configuración
+    // Crear configuración con contexto generado automáticamente
     const { data, error } = await supabase
       .from('bot_configs')
       .insert({
         user_id: userId,
-        main_context,
-        business_info: business_info || {
-          name: '',
-          hours: '',
-          address: '',
-          phone: ''
+        main_context: generatedContext, // ← GENERADO AUTOMÁTICAMENTE
+        business_info: {
+          name: template_options.business_name || '',
+          hours: template_options.business_hours || '',
+          address: template_options.business_address || '',
+          phone: template_options.business_phone || ''
         },
-        openai_model: openai_model || 'gpt-3.5-turbo',
+        openai_model: 'gpt-4o-mini', // Modelo por defecto
         openai_api_key: openai_api_key || null,
-        temperature: temperature || 0.7,
+        temperature: 0.7, // Temperatura fija
         is_active: true,
         notification_number: notification_number || null,
         enable_unanswered_notifications: enable_unanswered_notifications || false,
-        tone: tone || 'friendly',
-        use_emojis: use_emojis || 'moderate',
-        strict_mode: strict_mode ?? true,
-        response_length: response_length || 'medium',
+        // Configuraciones técnicas (de la plantilla, no editables)
+        tone: templateDefaults.tone,
+        use_emojis: templateDefaults.use_emojis,
+        strict_mode: templateDefaults.strict_mode,
+        response_length: templateDefaults.response_length,
         custom_instructions: custom_instructions || '',
-        selected_template_id: selected_template_id || null,
-        template_options: template_options || {}
+        selected_template_id,
+        template_options
       })
       .select()
       .single();
@@ -176,18 +198,10 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const {
-      main_context,
-      business_info,
-      openai_model,
       openai_api_key,
-      temperature,
       is_active,
       notification_number,
       enable_unanswered_notifications,
-      tone,
-      use_emojis,
-      strict_mode,
-      response_length,
       custom_instructions,
       selected_template_id,
       template_options
@@ -195,23 +209,54 @@ export async function PUT(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Preparar datos para actualizar (solo campos proporcionados)
+    // Preparar datos para actualizar
     const updateData: any = {
       updated_at: new Date().toISOString()
     };
 
-    if (main_context !== undefined) updateData.main_context = main_context;
-    if (business_info !== undefined) updateData.business_info = business_info;
-    if (openai_model !== undefined) updateData.openai_model = openai_model;
+    // Regenerar contexto si cambiaron las opciones de template o instrucciones
+    if ((selected_template_id !== undefined && template_options !== undefined) || custom_instructions !== undefined) {
+      // Obtener la template actual o la nueva
+      const templateId = selected_template_id !== undefined ? selected_template_id : (await supabase.from('bot_configs').select('selected_template_id').eq('user_id', userId).single()).data?.selected_template_id;
+
+      if (templateId) {
+        const { data: template } = await supabase
+          .from('business_templates')
+          .select('*')
+          .eq('id', templateId)
+          .single();
+
+        if (template) {
+          // Obtener template_options actual si no se proveyó
+          const currentOptions = template_options !== undefined ? template_options : (await supabase.from('bot_configs').select('template_options').eq('user_id', userId).single()).data?.template_options;
+          const currentCustom = custom_instructions !== undefined ? custom_instructions : (await supabase.from('bot_configs').select('custom_instructions').eq('user_id', userId).single()).data?.custom_instructions;
+
+          // Regenerar contexto
+          updateData.main_context = generateFullContext(template, currentOptions, currentCustom);
+
+          // Actualizar business_info desde template_options
+          if (currentOptions) {
+            updateData.business_info = {
+              name: currentOptions.business_name || '',
+              hours: currentOptions.business_hours || '',
+              address: currentOptions.business_address || '',
+              phone: currentOptions.business_phone || ''
+            };
+          }
+
+          // Actualizar configuraciones técnicas de la plantilla
+          updateData.tone = template.default_tone;
+          updateData.use_emojis = template.default_use_emojis;
+          updateData.response_length = template.default_response_length;
+          updateData.strict_mode = template.default_strict_mode;
+        }
+      }
+    }
+
     if (openai_api_key !== undefined) updateData.openai_api_key = openai_api_key;
-    if (temperature !== undefined) updateData.temperature = temperature;
     if (is_active !== undefined) updateData.is_active = is_active;
     if (notification_number !== undefined) updateData.notification_number = notification_number;
     if (enable_unanswered_notifications !== undefined) updateData.enable_unanswered_notifications = enable_unanswered_notifications;
-    if (tone !== undefined) updateData.tone = tone;
-    if (use_emojis !== undefined) updateData.use_emojis = use_emojis;
-    if (strict_mode !== undefined) updateData.strict_mode = strict_mode;
-    if (response_length !== undefined) updateData.response_length = response_length;
     if (custom_instructions !== undefined) updateData.custom_instructions = custom_instructions;
     if (selected_template_id !== undefined) updateData.selected_template_id = selected_template_id;
     if (template_options !== undefined) updateData.template_options = template_options;

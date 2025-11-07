@@ -1,4 +1,4 @@
-import { BotConfig } from '@/types';
+import { BotConfig, BusinessTemplate } from '@/types';
 
 /**
  * Construye instrucciones adicionales para el prompt basadas en las opciones de template activadas
@@ -201,4 +201,98 @@ export function getDefaultTemplateOptions(templateOptions: any[]): Record<string
   });
 
   return defaults;
+}
+
+/**
+ * Genera el contexto completo del bot automáticamente
+ * Combina: contexto base de plantilla + datos básicos + opciones activadas
+ */
+export function generateFullContext(
+  template: BusinessTemplate,
+  templateOptions: Record<string, any>,
+  customInstructions?: string
+): string {
+  let context = template.default_main_context;
+
+  // 1. AGREGAR INFORMACIÓN BÁSICA DEL NEGOCIO
+  const basicInfoParts: string[] = [];
+
+  if (templateOptions.business_name) {
+    basicInfoParts.push(`Nombre del negocio: ${templateOptions.business_name}`);
+  }
+
+  if (templateOptions.business_hours) {
+    basicInfoParts.push(`Horarios de atención: ${templateOptions.business_hours}`);
+  }
+
+  if (templateOptions.business_address) {
+    basicInfoParts.push(`Dirección: ${templateOptions.business_address}`);
+  }
+
+  if (templateOptions.business_phone) {
+    basicInfoParts.push(`Teléfono de contacto: ${templateOptions.business_phone}`);
+  }
+
+  if (basicInfoParts.length > 0) {
+    context += `\n\n${basicInfoParts.join('\n')}`;
+  }
+
+  // 2. AGREGAR INSTRUCCIONES DE OPCIONES ACTIVADAS
+  const templateInstructions = buildTemplateInstructions(templateOptions);
+  if (templateInstructions) {
+    context += templateInstructions;
+  }
+
+  // 3. AGREGAR REGLAS DE COMPORTAMIENTO (automático según plantilla)
+  context += `\n\nREGLAS DE COMPORTAMIENTO:`;
+  context += `\n- Tono: ${getToneDescription(template.default_tone)}`;
+  context += `\n- Longitud de respuesta: ${getLengthDescription(template.default_response_length)}`;
+  context += `\n- Emojis: ${getEmojiDescription(template.default_use_emojis)}`;
+
+  if (template.default_strict_mode) {
+    context += `\n- MODO ESTRICTO: Nunca inventes información que no esté explícitamente en este contexto. Si no tienes un dato, admítelo honestamente.`;
+  }
+
+  // 4. AGREGAR INSTRUCCIONES PERSONALIZADAS (opcional)
+  if (customInstructions && customInstructions.trim()) {
+    context += `\n\nINSTRUCCIONES ADICIONALES PERSONALIZADAS:\n${customInstructions}`;
+  }
+
+  return context.trim();
+}
+
+/**
+ * Helper: Describe el tono en lenguaje natural
+ */
+function getToneDescription(tone: string): string {
+  const descriptions: Record<string, string> = {
+    formal: 'Formal y profesional, usando lenguaje técnico cuando sea apropiado',
+    casual: 'Casual y relajado, como hablando con un amigo',
+    friendly: 'Amigable y cálido, profesional pero accesible',
+  };
+  return descriptions[tone] || descriptions.friendly;
+}
+
+/**
+ * Helper: Describe la longitud de respuesta
+ */
+function getLengthDescription(length: string): string {
+  const descriptions: Record<string, string> = {
+    short: 'Muy breve y concisa (1-2 oraciones máximo)',
+    medium: 'Moderada e informativa pero concisa (2-4 oraciones)',
+    long: 'Detallada y explicativa cuando sea necesario',
+  };
+  return descriptions[length] || descriptions.medium;
+}
+
+/**
+ * Helper: Describe el uso de emojis
+ */
+function getEmojiDescription(emojiUsage: string): string {
+  const descriptions: Record<string, string> = {
+    never: 'NUNCA uses emojis en tus respuestas',
+    moderate: 'Usa emojis ocasionalmente para hacer tus mensajes más amigables (máximo 1-2 por mensaje)',
+    frequent: 'Usa emojis con frecuencia para hacer tus mensajes más expresivos y amigables',
+  };
+  return descriptions[emojiUsage] || descriptions.moderate;
 }

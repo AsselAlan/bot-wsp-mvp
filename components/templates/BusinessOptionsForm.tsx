@@ -248,38 +248,56 @@ export default function BusinessOptionsForm({
   }, {} as Record<string, TemplateOption[]>);
 
   const categoryLabels: Record<string, string> = {
-    menu: 'Menú',
-    pedidos: 'Pedidos',
-    delivery: 'Delivery',
-    pagos: 'Pagos',
-    general: 'Información General',
+    basic: '📋 Datos Básicos del Negocio',
+    menu: '🍽️ Menú',
+    pedidos: '📦 Pedidos',
+    delivery: '🚚 Delivery',
+    pagos: '💳 Pagos',
+    propiedades: '🏠 Propiedades',
+    visitas: '📅 Visitas',
+    servicios: '🔧 Servicios',
+    general: 'ℹ️ Información General',
   };
+
+  // Ordenar categorías: 'basic' siempre primero
+  const categoryOrder = ['basic', ...Object.keys(categorizedOptions).filter(c => c !== 'basic')];
+  const orderedCategories = categoryOrder.filter(cat => categorizedOptions[cat]);
 
   return (
     <div className="space-y-8">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Opciones de Negocio
+          Configuración del Negocio
         </h3>
         <p className="text-sm text-gray-600">
-          Activa y configura las opciones que necesites para tu negocio
+          Completa los datos básicos y activa las opciones que necesites para tu negocio
         </p>
       </div>
 
-      {Object.entries(categorizedOptions).map(([category, categoryOptions]) => (
-        <div key={category} className="border-b border-gray-200 pb-8 last:border-0">
-          <h4 className="text-md font-semibold text-gray-900 mb-4 uppercase tracking-wide">
-            {categoryLabels[category] || category}
-          </h4>
-          <div className="space-y-6">
-            {categoryOptions.map((option) => (
-              <div key={option.id} className="bg-gray-50 p-4 rounded-lg">
-                {renderField(option)}
-              </div>
-            ))}
+      {orderedCategories.map((category) => {
+        const categoryOptions = categorizedOptions[category];
+        const isBasicCategory = category === 'basic';
+
+        return (
+          <div key={category} className="border-b border-gray-200 pb-8 last:border-0">
+            <h4 className="text-md font-semibold text-gray-900 mb-4 uppercase tracking-wide">
+              {categoryLabels[category] || category}
+              {isBasicCategory && (
+                <span className="ml-2 text-xs text-red-600 font-normal normal-case">
+                  (Campos obligatorios)
+                </span>
+              )}
+            </h4>
+            <div className="space-y-6">
+              {categoryOptions.map((option) => (
+                <div key={option.id} className={`p-4 rounded-lg ${isBasicCategory ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                  {renderField(option)}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

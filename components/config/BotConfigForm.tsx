@@ -5,15 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Save, AlertCircle, CheckCircle2, Bell, Sparkles } from 'lucide-react';
-import { BotConfig, BusinessInfo, TemplateWithOptions } from '@/types';
-import TemplateSelector from '@/components/templates/TemplateSelector';
-import BusinessOptionsForm from '@/components/templates/BusinessOptionsForm';
-import { applyTemplateToConfig } from '@/lib/templates/template-builder';
+import { Loader2, Save, AlertCircle, CheckCircle2, Bell, Key } from 'lucide-react';
+import { BotConfig } from '@/types';
 
 export function BotConfigForm() {
   const [loading, setLoading] = useState(false);
@@ -22,30 +17,11 @@ export function BotConfigForm() {
   const [success, setSuccess] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
 
-  // Form state
-  const [mainContext, setMainContext] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [businessHours, setBusinessHours] = useState('');
-  const [businessAddress, setBusinessAddress] = useState('');
-  const [businessPhone, setBusinessPhone] = useState('');
-  const [openaiModel, setOpenaiModel] = useState('gpt-3.5-turbo');
+  // Form state (solo campos editables)
   const [openaiApiKey, setOpenaiApiKey] = useState('');
-  const [temperature, setTemperature] = useState([0.7]);
+  const [customInstructions, setCustomInstructions] = useState('');
   const [notificationNumber, setNotificationNumber] = useState('');
   const [enableNotifications, setEnableNotifications] = useState(false);
-
-  // Nuevos campos de configuración de prompt
-  const [tone, setTone] = useState<'formal' | 'casual' | 'friendly'>('friendly');
-  const [useEmojis, setUseEmojis] = useState<'never' | 'moderate' | 'frequent'>('moderate');
-  const [strictMode, setStrictMode] = useState(true);
-  const [responseLength, setResponseLength] = useState<'short' | 'medium' | 'long'>('medium');
-  const [customInstructions, setCustomInstructions] = useState('');
-
-  // Template state
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithOptions | null>(null);
-  const [templateOptions, setTemplateOptions] = useState<Record<string, any>>({});
 
   useEffect(() => {
     loadConfig();
@@ -60,23 +36,10 @@ export function BotConfigForm() {
       if (result.success && result.data) {
         const config: BotConfig = result.data;
         setHasConfig(true);
-        setMainContext(config.main_context);
-        setBusinessName(config.business_info.name || '');
-        setBusinessHours(config.business_info.hours || '');
-        setBusinessAddress(config.business_info.address || '');
-        setBusinessPhone(config.business_info.phone || '');
-        setOpenaiModel(config.openai_model);
         setOpenaiApiKey(config.openai_api_key || '');
-        setTemperature([config.temperature]);
+        setCustomInstructions(config.custom_instructions || '');
         setNotificationNumber(config.notification_number || '');
         setEnableNotifications(config.enable_unanswered_notifications || false);
-
-        // Cargar nuevos campos de configuración de prompt
-        setTone(config.tone || 'friendly');
-        setUseEmojis(config.use_emojis || 'moderate');
-        setStrictMode(config.strict_mode ?? true);
-        setResponseLength(config.response_length || 'medium');
-        setCustomInstructions(config.custom_instructions || '');
       }
     } catch (err) {
       setError('Error al cargar configuración');
@@ -93,31 +56,17 @@ export function BotConfigForm() {
 
     try {
       const configData = {
-        main_context: mainContext,
-        business_info: {
-          name: businessName,
-          hours: businessHours,
-          address: businessAddress,
-          phone: businessPhone
-        },
-        openai_model: openaiModel,
-        openai_api_key: openaiApiKey || null,
-        temperature: temperature[0],
-        notification_number: notificationNumber || null,
-        enable_unanswered_notifications: enableNotifications,
-        tone: tone,
-        use_emojis: useEmojis,
-        strict_mode: strictMode,
-        response_length: responseLength,
+        openai_api_key: openaiApiKey,
         custom_instructions: customInstructions,
-        selected_template_id: selectedTemplate?.id || null,
-        template_options: templateOptions
+        notification_number: notificationNumber,
+        enable_unanswered_notifications: enableNotifications,
       };
 
+      const method = hasConfig ? 'PUT' : 'POST';
       const response = await fetch('/api/bot/config', {
-        method: hasConfig ? 'PUT' : 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configData)
+        body: JSON.stringify(configData),
       });
 
       const result = await response.json();
@@ -129,6 +78,7 @@ export function BotConfigForm() {
       setSuccess(true);
       setHasConfig(true);
       setTimeout(() => setSuccess(false), 3000);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -146,413 +96,148 @@ export function BotConfigForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-900 dark:text-red-100">{error}</p>
-        </div>
-      )}
-
+      {/* Success message */}
       {success && (
-        <div className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-green-900 dark:text-green-100">
-            Configuración guardada exitosamente
-          </p>
-        </div>
+        <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-green-900 dark:text-green-100 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Configuración guardada exitosamente
+            </p>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Template Selector Button */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+      {/* Error message */}
+      {error && (
+        <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-red-900 dark:text-red-100 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Info Card */}
+      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <div>
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Plantillas de Negocio</h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Configura tu bot rápidamente con plantillas predefinidas
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowTemplateModal(true)}
-              className="border-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900"
-            >
-              Cargar Plantilla
-            </Button>
-          </div>
-          {selectedTemplate && (
-            <div className="mt-4 p-3 bg-white dark:bg-gray-900 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{selectedTemplate.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {selectedTemplate.name}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Plantilla activa
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowOptionsModal(true)}
-                >
-                  Configurar opciones
-                </Button>
-              </div>
-            </div>
-          )}
+          <p className="text-sm text-blue-900 dark:text-blue-100">
+            💡 <strong>Nota:</strong> La configuración principal del bot se genera automáticamente desde la plantilla seleccionada en <strong>Flujos de Trabajo</strong>. Aquí solo puedes configurar aspectos técnicos opcionales.
+          </p>
         </CardContent>
       </Card>
 
-      {/* Contexto Principal */}
+      {/* API Key Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Contexto Principal</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            OpenAI API Key
+          </CardTitle>
           <CardDescription>
-            Define cómo debe comportarse tu bot. Este es el prompt base que se usará.
+            Clave de API de OpenAI (opcional si ya configuraste una variable de entorno)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="openai-api-key">API Key</Label>
+            <Input
+              id="openai-api-key"
+              type="password"
+              placeholder="sk-..."
+              value={openaiApiKey}
+              onChange={(e) => setOpenaiApiKey(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Si no proporcionas una API Key aquí, el sistema usará la configurada en variables de entorno
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Custom Instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Instrucciones Personalizadas (Opcional)</CardTitle>
+          <CardDescription>
+            Instrucciones adicionales específicas para tu bot que se agregarán al contexto generado automáticamente
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
-            value={mainContext}
-            onChange={(e) => setMainContext(e.target.value)}
-            placeholder="Ejemplo: Eres un asistente virtual de una pizzería. Debes ser amable y ayudar con pedidos..."
-            rows={6}
-            required
+            placeholder="Ejemplo: Siempre mencionar la promoción 2x1 los martes&#10;Ejemplo: Priorizar atención a clientes VIP"
+            value={customInstructions}
+            onChange={(e) => setCustomInstructions(e.target.value)}
+            rows={4}
+            className="resize-none"
           />
+          <p className="text-xs text-muted-foreground mt-2">
+            Estas instrucciones se agregarán al contexto generado desde tu plantilla de negocio
+          </p>
         </CardContent>
       </Card>
 
-      {/* Información del Negocio */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del Negocio</CardTitle>
-          <CardDescription>
-            Datos que el bot usará para responder preguntas
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="businessName">Nombre del Negocio</Label>
-              <Input
-                id="businessName"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="Mi Negocio"
-              />
-            </div>
-            <div>
-              <Label htmlFor="businessPhone">Teléfono</Label>
-              <Input
-                id="businessPhone"
-                value={businessPhone}
-                onChange={(e) => setBusinessPhone(e.target.value)}
-                placeholder="+1234567890"
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="businessHours">Horarios de Atención</Label>
-            <Input
-              id="businessHours"
-              value={businessHours}
-              onChange={(e) => setBusinessHours(e.target.value)}
-              placeholder="Lunes a Viernes 9:00 - 18:00"
-            />
-          </div>
-          <div>
-            <Label htmlFor="businessAddress">Dirección</Label>
-            <Input
-              id="businessAddress"
-              value={businessAddress}
-              onChange={(e) => setBusinessAddress(e.target.value)}
-              placeholder="Calle 123, Ciudad"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Configuración OpenAI */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuración OpenAI</CardTitle>
-          <CardDescription>
-            Ajustes del modelo de inteligencia artificial
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="model">Modelo</Label>
-            <Select value={openaiModel} onValueChange={setOpenaiModel}>
-              <SelectTrigger id="model">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Más rápido y económico)</SelectItem>
-                <SelectItem value="gpt-4">GPT-4 (Más preciso)</SelectItem>
-                <SelectItem value="gpt-4-turbo">GPT-4 Turbo (Equilibrado)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="apiKey">API Key de OpenAI (opcional)</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              value={openaiApiKey}
-              onChange={(e) => setOpenaiApiKey(e.target.value)}
-              placeholder="sk-..."
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Si no proporcionas una, se usará la API key del sistema
-            </p>
-          </div>
-
-          <div>
-            <Label>Temperatura (Creatividad): {temperature[0]}</Label>
-            <Slider
-              value={temperature}
-              onValueChange={setTemperature}
-              min={0}
-              max={2}
-              step={0.1}
-              className="mt-2"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              0 = Más preciso y consistente | 2 = Más creativo y variado
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Configuración de Comportamiento del Bot */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Comportamiento del Bot</CardTitle>
-          <CardDescription>
-            Personaliza cómo responde el bot a los mensajes
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="tone">Tono de las Respuestas</Label>
-            <Select value={tone} onValueChange={(value: any) => setTone(value)}>
-              <SelectTrigger id="tone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="formal">Formal - Profesional y técnico</SelectItem>
-                <SelectItem value="casual">Casual - Relajado y coloquial</SelectItem>
-                <SelectItem value="friendly">Amigable - Cálido pero profesional</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="useEmojis">Uso de Emojis</Label>
-            <Select value={useEmojis} onValueChange={(value: any) => setUseEmojis(value)}>
-              <SelectTrigger id="useEmojis">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="never">Nunca - Sin emojis</SelectItem>
-                <SelectItem value="moderate">Moderado - 1-2 emojis por mensaje</SelectItem>
-                <SelectItem value="frequent">Frecuente - Varios emojis expresivos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="responseLength">Longitud de Respuestas</Label>
-            <Select value={responseLength} onValueChange={(value: any) => setResponseLength(value)}>
-              <SelectTrigger id="responseLength">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="short">Corta - 1-2 oraciones</SelectItem>
-                <SelectItem value="medium">Media - 2-4 oraciones</SelectItem>
-                <SelectItem value="long">Larga - Respuestas detalladas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="strictMode">Modo Estricto</Label>
-              <p className="text-xs text-muted-foreground">
-                El bot NO inventará información que no esté en el contexto
-              </p>
-            </div>
-            <Switch
-              id="strictMode"
-              checked={strictMode}
-              onCheckedChange={setStrictMode}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="customInstructions">Instrucciones Personalizadas (Opcional)</Label>
-            <Textarea
-              id="customInstructions"
-              value={customInstructions}
-              onChange={(e) => setCustomInstructions(e.target.value)}
-              placeholder="Agrega instrucciones adicionales específicas para tu bot..."
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Ejemplo: &quot;Siempre menciona que tenemos envío gratis en pedidos mayores a $50&quot;
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notificaciones de Mensajes Sin Responder */}
+      {/* Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notificaciones de Mensajes Sin Responder
+            Notificaciones
           </CardTitle>
           <CardDescription>
-            Recibe alertas por WhatsApp cuando el bot no pueda responder un mensaje
+            Recibe alertas cuando el bot no pueda responder un mensaje
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="enableNotifications">Activar Notificaciones</Label>
-              <p className="text-xs text-muted-foreground">
-                Enviar alertas cuando hay mensajes sin responder
+              <Label>Activar notificaciones</Label>
+              <p className="text-sm text-muted-foreground">
+                Recibir alertas de mensajes sin responder
               </p>
             </div>
             <Switch
-              id="enableNotifications"
               checked={enableNotifications}
               onCheckedChange={setEnableNotifications}
             />
           </div>
 
           {enableNotifications && (
-            <div>
-              <Label htmlFor="notificationNumber">Número para Notificaciones</Label>
+            <div className="space-y-2">
+              <Label htmlFor="notification-number">Número de WhatsApp para notificaciones</Label>
               <Input
-                id="notificationNumber"
+                id="notification-number"
+                type="text"
+                placeholder="+54 9 11 1234-5678"
                 value={notificationNumber}
                 onChange={(e) => setNotificationNumber(e.target.value)}
-                placeholder="+5491112345678"
-                type="tel"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Formato: Código de país + número (ej: +5491112345678 para Argentina)
+              <p className="text-xs text-muted-foreground">
+                Formato: +[código país] [código área] [número]
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Button type="submit" size="lg" className="w-full" disabled={saving}>
-        {saving ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Guardando...
-          </>
-        ) : (
-          <>
-            <Save className="mr-2 h-4 w-4" />
-            Guardar Configuración
-          </>
-        )}
-      </Button>
-
-      {/* Template Selector Modal */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Seleccionar Plantilla</h2>
-                <button
-                  onClick={() => setShowTemplateModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <TemplateSelector
-                onSelect={(template) => {
-                  const applied = applyTemplateToConfig(template, {
-                    business_info: {
-                      name: businessName,
-                      hours: businessHours,
-                      address: businessAddress,
-                      phone: businessPhone,
-                    }
-                  });
-                  setSelectedTemplate(template);
-                  setMainContext(applied.main_context || '');
-                  setTone(applied.tone || 'friendly');
-                  setUseEmojis(applied.use_emojis || 'moderate');
-                  setResponseLength(applied.response_length || 'medium');
-                  setStrictMode(applied.strict_mode ?? true);
-                  setShowTemplateModal(false);
-                  setSuccess(false);
-                }}
-                selectedTemplateId={selectedTemplate?.id}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Business Options Modal */}
-      {showOptionsModal && selectedTemplate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Opciones de {selectedTemplate.name}
-                </h2>
-                <button
-                  onClick={() => setShowOptionsModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <BusinessOptionsForm
-                templateId={selectedTemplate.id}
-                initialValues={templateOptions}
-                onChange={(values) => {
-                  setTemplateOptions(values);
-                }}
-              />
-              <div className="mt-6 flex justify-end">
-                <Button
-                  onClick={() => setShowOptionsModal(false)}
-                  className="w-full sm:w-auto"
-                >
-                  Aplicar Opciones
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Submit Button */}
+      <div className="flex justify-end">
+        <Button type="submit" size="lg" disabled={saving}>
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar Configuración
+            </>
+          )}
+        </Button>
+      </div>
     </form>
   );
 }
