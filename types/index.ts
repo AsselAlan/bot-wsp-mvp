@@ -308,3 +308,82 @@ export interface CreateOrderRequest {
   customer_notes?: string;
   conversation_snapshot?: Record<string, any>;
 }
+
+// Message Flows Types
+export interface FlowStep {
+  order: number;
+  context: string;
+  expected_trigger: string;
+  bot_response: string;
+  validation_type?: 'any' | 'keywords' | 'ai' | 'none';
+  validation_keywords?: string[];
+}
+
+export interface FlowFinalAction {
+  type: 'create_order' | 'send_notification' | 'save_info' | 'webhook';
+  config: Record<string, any>;
+}
+
+export interface MessageFlow {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  is_active: boolean;
+  is_default: boolean;
+
+  activation_type: 'keywords' | 'ai';
+  activation_keywords: string[] | null;
+  activation_prompt: string | null;
+
+  steps: FlowStep[];
+  final_action: FlowFinalAction;
+
+  timeout_minutes: number;
+  allow_restart: boolean;
+  error_message: string;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FlowConversationState {
+  id: string;
+  user_id: string;
+  flow_id: string;
+  chat_id: string;
+  customer_whatsapp_id: string;
+
+  current_step: number;
+  is_completed: boolean;
+  is_cancelled: boolean;
+
+  collected_data: Record<string, any>;
+
+  started_at: string;
+  last_interaction_at: string;
+  completed_at: string | null;
+  expires_at: string | null;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateMessageFlowRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  activation_type: 'keywords' | 'ai';
+  activation_keywords?: string[];
+  activation_prompt?: string;
+  steps: FlowStep[];
+  final_action: FlowFinalAction;
+  timeout_minutes?: number;
+  allow_restart?: boolean;
+  error_message?: string;
+}
+
+export interface UpdateMessageFlowRequest extends Partial<CreateMessageFlowRequest> {
+  is_active?: boolean;
+}

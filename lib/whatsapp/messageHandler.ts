@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { generateAIResponse, validateOpenAIConfig } from '@/lib/openai/client';
 import { BotConfig, OrderConfig } from '@/types';
 import OpenAI from 'openai';
+import {
+  detectFlowActivation,
+  getFlowConversationState,
+  startFlowConversation,
+  processFlowMessage,
+} from '@/lib/flows/flow-engine';
 
 interface MessageHandlerConfig {
   userId: string;
@@ -42,7 +48,7 @@ export async function handleIncomingMessage(
     if (!botConfig.is_active) {
       console.log('Bot pausado, no se procesará el mensaje');
       // Registrar el mensaje pero no responder
-      await logMessage(userId, message, null, false, true);
+      await logMessage(userId, message, null, true);
       return;
     }
 
@@ -60,26 +66,74 @@ export async function handleIncomingMessage(
 
     let response: string | null = null;
     let errorReason: 'out_of_context' | 'no_match' | 'api_error' | 'paused' | null = null;
+    let isFlowResponse = false;
 
     try {
-      // Obtener historial de conversación
-      const conversationHistory = await getConversationHistory(
-        userId,
-        chat.id._serialized
-      );
+      // PRIORIDAD 1: Verificar si hay un flujo activo para este chat
+      const activeFlowState = await getFlowConversationState(userId, chat.id._serialized);
 
-      response = await generateAIResponse({
-        config: botConfig,
-        context: {
-          senderNumber,
-          messageText,
-          conversationHistory,
-        },
-      });
+      if (activeFlowState) {
+        console.log(`Procesando mensaje en flujo activo (step ${activeFlowState.current_step})`);
 
-      // Verificar si se pudo generar una respuesta
-      if (!response || response.trim() === '') {
-        errorReason = 'no_match';
+        // Obtener el flujo completo
+        const { data: flow } = await supabase
+          .from('message_flows')
+          .select('*')
+          .eq('id', activeFlowState.flow_id)
+          .single();
+
+        if (flow) {
+          const flowResult = await processFlowMessage(flow, activeFlowState, messageText, botConfig);
+          response = flowResult.response;
+          isFlowResponse = true;
+
+          console.log(`Flujo procesado. Completado: ${flowResult.isCompleted}`);
+        }
+      } else {
+        // PRIORIDAD 2: Verificar si el mensaje debe activar un nuevo flujo
+        const flowToActivate = await detectFlowActivation(userId, messageText, botConfig);
+
+        if (flowToActivate) {
+          console.log(`Activando flujo: ${flowToActivate.name}`);
+
+          // Iniciar el flujo
+          const flowState = await startFlowConversation(
+            userId,
+            flowToActivate.id,
+            chat.id._serialized,
+            senderNumber,
+            flowToActivate
+          );
+
+          if (flowState && flowToActivate.steps.length > 0) {
+            // Enviar mensaje del primer paso
+            const firstStep = flowToActivate.steps[0];
+            response = firstStep.bot_response;
+            isFlowResponse = true;
+
+            console.log('Flujo iniciado exitosamente');
+          }
+        } else {
+          // PRIORIDAD 3: Respuesta normal con IA (sin flujo)
+          const conversationHistory = await getConversationHistory(
+            userId,
+            chat.id._serialized
+          );
+
+          response = await generateAIResponse({
+            config: botConfig,
+            context: {
+              senderNumber,
+              messageText,
+              conversationHistory,
+            },
+          });
+
+          // Verificar si se pudo generar una respuesta
+          if (!response || response.trim() === '') {
+            errorReason = 'no_match';
+          }
+        }
       }
     } catch (error) {
       console.error('Error al generar respuesta con OpenAI:', error);

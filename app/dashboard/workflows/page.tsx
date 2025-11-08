@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Workflow, FileText, ShoppingCart, Info, Loader2, Sparkles } from "lucide-react";
+import { Workflow, FileText, ShoppingCart, Info, Loader2, Sparkles, MessageSquare } from "lucide-react";
 import TemplateSelector from '@/components/templates/TemplateSelector';
 import BusinessOptionsForm from '@/components/templates/BusinessOptionsForm';
-import { TemplateWithOptions } from '@/types';
+import MessageFlowsList from '@/components/flows/MessageFlowsList';
+import MessageFlowEditor from '@/components/flows/MessageFlowEditor';
+import { TemplateWithOptions, MessageFlow } from '@/types';
 import { applyTemplateToConfig } from '@/lib/templates/template-builder';
 
 export default function WorkflowsPage() {
@@ -19,8 +21,15 @@ export default function WorkflowsPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estados para flujos de mensajes
+  const [flows, setFlows] = useState<MessageFlow[]>([]);
+  const [flowsLoading, setFlowsLoading] = useState(false);
+  const [editingFlow, setEditingFlow] = useState<MessageFlow | null>(null);
+  const [isCreatingFlow, setIsCreatingFlow] = useState(false);
+
   useEffect(() => {
     loadCurrentConfig();
+    loadFlows();
   }, []);
 
   const loadCurrentConfig = async () => {
@@ -50,6 +59,115 @@ export default function WorkflowsPage() {
     }
   };
 
+  // Cargar flujos de mensajes
+  const loadFlows = async () => {
+    try {
+      setFlowsLoading(true);
+      const response = await fetch('/api/bot/message-flows');
+      const result = await response.json();
+
+      if (result.success) {
+        setFlows(result.flows || []);
+      }
+    } catch (err) {
+      console.error('Error loading flows:', err);
+    } finally {
+      setFlowsLoading(false);
+    }
+  };
+
+  // Crear nuevo flujo
+  const handleCreateFlow = async (flowData: Partial<MessageFlow>) => {
+    try {
+      const response = await fetch('/api/bot/message-flows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(flowData),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al crear flujo');
+      }
+
+      setIsCreatingFlow(false);
+      await loadFlows();
+    } catch (err) {
+      console.error('Error creating flow:', err);
+      alert(err instanceof Error ? err.message : 'Error al crear flujo');
+      throw err;
+    }
+  };
+
+  // Actualizar flujo existente
+  const handleUpdateFlow = async (flowData: Partial<MessageFlow>) => {
+    if (!editingFlow) return;
+
+    try {
+      const response = await fetch(`/api/bot/message-flows/${editingFlow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(flowData),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al actualizar flujo');
+      }
+
+      setEditingFlow(null);
+      await loadFlows();
+    } catch (err) {
+      console.error('Error updating flow:', err);
+      alert(err instanceof Error ? err.message : 'Error al actualizar flujo');
+      throw err;
+    }
+  };
+
+  // Eliminar flujo
+  const handleDeleteFlow = async (flowId: string) => {
+    try {
+      const response = await fetch(`/api/bot/message-flows/${flowId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al eliminar flujo');
+      }
+
+      await loadFlows();
+    } catch (err) {
+      console.error('Error deleting flow:', err);
+      alert(err instanceof Error ? err.message : 'Error al eliminar flujo');
+    }
+  };
+
+  // Activar/desactivar flujo
+  const handleToggleFlowActive = async (flowId: string, isActive: boolean) => {
+    try {
+      const response = await fetch(`/api/bot/message-flows/${flowId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: isActive }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al cambiar estado');
+      }
+
+      await loadFlows();
+    } catch (err) {
+      console.error('Error toggling flow:', err);
+      alert(err instanceof Error ? err.message : 'Error al cambiar estado');
+    }
+  };
+
   const handleSaveWorkflow = async () => {
     try {
       setSaving(true);
@@ -74,6 +192,20 @@ export default function WorkflowsPage() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
       await loadCurrentConfig();
+
+      // Si es plantilla de Delivery, crear flujo predeterminado si no existe
+      if (selectedTemplate?.slug === 'servicio-delivery-comida') {
+        try {
+          await fetch('/api/bot/message-flows/create-default', {
+            method: 'POST',
+          });
+          // Recargar flujos para mostrar el nuevo
+          await loadFlows();
+        } catch (err) {
+          console.error('Error creando flujo predeterminado:', err);
+          // No mostrar error al usuario, es opcional
+        }
+      }
 
     } catch (err) {
       console.error('Error saving workflow:', err);
@@ -172,7 +304,7 @@ export default function WorkflowsPage() {
       {/* Workflow Configuration Tabs */}
       {selectedTemplate && (
         <Tabs defaultValue="options" className="w-full">
-          <TabsList className={`grid w-full max-w-md ${selectedTemplate.supports_orders ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full max-w-2xl ${selectedTemplate.supports_orders ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="options">
               <Workflow className="h-4 w-4 mr-2" />
               Opciones
@@ -187,6 +319,10 @@ export default function WorkflowsPage() {
                 Pedidos
               </TabsTrigger>
             )}
+            <TabsTrigger value="flows">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Flujos de Mensajes
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="options" className="mt-6">
@@ -284,6 +420,47 @@ export default function WorkflowsPage() {
               </Card>
             </TabsContent>
           )}
+
+          <TabsContent value="flows" className="mt-6">
+            {isCreatingFlow || editingFlow ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {editingFlow ? `Editando: ${editingFlow.name}` : 'Crear Nuevo Flujo'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MessageFlowEditor
+                    flow={editingFlow}
+                    onSave={editingFlow ? handleUpdateFlow : handleCreateFlow}
+                    onDelete={editingFlow ? async () => {
+                      await handleDeleteFlow(editingFlow.id);
+                      setEditingFlow(null);
+                    } : undefined}
+                    onCancel={() => {
+                      setIsCreatingFlow(false);
+                      setEditingFlow(null);
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <MessageFlowsList
+                flows={flows}
+                onCreateNew={() => {
+                  console.log('Creando nuevo flujo...');
+                  setIsCreatingFlow(true);
+                }}
+                onEdit={(flow) => {
+                  console.log('Editando flujo:', flow);
+                  setEditingFlow(flow);
+                }}
+                onDelete={handleDeleteFlow}
+                onToggleActive={handleToggleFlowActive}
+                isLoading={flowsLoading}
+              />
+            )}
+          </TabsContent>
         </Tabs>
       )}
 
@@ -291,6 +468,7 @@ export default function WorkflowsPage() {
       {selectedTemplate && (
         <div className="flex justify-end">
           <Button
+            type="button"
             size="lg"
             onClick={handleSaveWorkflow}
             disabled={saving}
