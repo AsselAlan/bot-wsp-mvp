@@ -76,7 +76,17 @@ export async function POST(request: NextRequest) {
       enable_unanswered_notifications,
       custom_instructions,
       selected_template_id,
-      template_options
+      template_options,
+      business_name,
+      business_description,
+      business_address,
+      business_phone,
+      business_email,
+      business_website,
+      social_networks,
+      business_hours,
+      use_emojis,
+      message_tone,
     } = body;
 
     const supabase = await createClient();
@@ -101,12 +111,30 @@ export async function POST(request: NextRequest) {
       }
 
       // Generar contexto completo automáticamente
-      generatedContext = generateFullContext(template, template_options, custom_instructions);
+      const businessConfig = {
+        business_name,
+        business_description,
+        business_address,
+        business_phone,
+        business_email,
+        business_website,
+        social_networks,
+        business_hours,
+        use_emojis,
+        message_tone,
+      };
+
+      generatedContext = generateFullContext(
+        template,
+        template_options,
+        businessConfig,
+        custom_instructions
+      );
 
       // Usar defaults de la plantilla para configuraciones técnicas
       templateDefaults = {
-        tone: template.default_tone,
-        use_emojis: template.default_use_emojis,
+        tone: message_tone || template.default_tone,
+        use_emojis: use_emojis !== undefined ? use_emojis : template.default_use_emojis,
         response_length: template.default_response_length,
         strict_mode: template.default_strict_mode,
       };
@@ -137,11 +165,19 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: userId,
         main_context: generatedContext, // ← GENERADO AUTOMÁTICAMENTE
+        business_name: business_name || '',
+        business_description: business_description || '',
+        business_address: business_address || '',
+        business_phone: business_phone || '',
+        business_email: business_email || '',
+        business_website: business_website || '',
+        social_networks: social_networks || '',
+        business_hours: business_hours || '',
         business_info: {
-          name: template_options.business_name || '',
-          hours: template_options.business_hours || '',
-          address: template_options.business_address || '',
-          phone: template_options.business_phone || ''
+          name: business_name || '',
+          hours: business_hours || '',
+          address: business_address || '',
+          phone: business_phone || ''
         },
         openai_model: 'gpt-4o-mini', // Modelo por defecto
         openai_api_key: openai_api_key || null,
@@ -151,6 +187,7 @@ export async function POST(request: NextRequest) {
         enable_unanswered_notifications: enable_unanswered_notifications || false,
         // Configuraciones técnicas (de la plantilla, no editables)
         tone: templateDefaults.tone,
+        message_tone: message_tone || 'amigable',
         use_emojis: templateDefaults.use_emojis,
         strict_mode: templateDefaults.strict_mode,
         response_length: templateDefaults.response_length,
@@ -204,7 +241,17 @@ export async function PUT(request: NextRequest) {
       enable_unanswered_notifications,
       custom_instructions,
       selected_template_id,
-      template_options
+      template_options,
+      business_name,
+      business_description,
+      business_address,
+      business_phone,
+      business_email,
+      business_website,
+      social_networks,
+      business_hours,
+      use_emojis,
+      message_tone,
     } = body;
 
     const supabase = await createClient();
@@ -214,41 +261,74 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString()
     };
 
-    // Regenerar contexto si cambiaron las opciones de template o instrucciones
-    if ((selected_template_id !== undefined && template_options !== undefined) || custom_instructions !== undefined) {
-      // Obtener la template actual o la nueva
-      const templateId = selected_template_id !== undefined ? selected_template_id : (await supabase.from('bot_configs').select('selected_template_id').eq('user_id', userId).single()).data?.selected_template_id;
+    // Regenerar contexto si cambiaron las opciones de template, configuraciones de negocio o instrucciones
+    const needsRegeneration = selected_template_id !== undefined || template_options !== undefined ||
+      custom_instructions !== undefined || business_name !== undefined || business_description !== undefined ||
+      business_address !== undefined || business_phone !== undefined || business_email !== undefined ||
+      business_website !== undefined || social_networks !== undefined || business_hours !== undefined ||
+      use_emojis !== undefined || message_tone !== undefined;
 
-      if (templateId) {
-        const { data: template } = await supabase
-          .from('business_templates')
-          .select('*')
-          .eq('id', templateId)
-          .single();
+    if (needsRegeneration) {
+      // Obtener configuración actual
+      const { data: currentConfig } = await supabase
+        .from('bot_configs')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-        if (template) {
-          // Obtener template_options actual si no se proveyó
-          const currentOptions = template_options !== undefined ? template_options : (await supabase.from('bot_configs').select('template_options').eq('user_id', userId).single()).data?.template_options;
-          const currentCustom = custom_instructions !== undefined ? custom_instructions : (await supabase.from('bot_configs').select('custom_instructions').eq('user_id', userId).single()).data?.custom_instructions;
+      if (currentConfig) {
+        // Obtener la template actual o la nueva
+        const templateId = selected_template_id !== undefined ? selected_template_id : currentConfig.selected_template_id;
 
-          // Regenerar contexto
-          updateData.main_context = generateFullContext(template, currentOptions, currentCustom);
+        if (templateId) {
+          const { data: template } = await supabase
+            .from('business_templates')
+            .select('*')
+            .eq('id', templateId)
+            .single();
 
-          // Actualizar business_info desde template_options
-          if (currentOptions) {
-            updateData.business_info = {
-              name: currentOptions.business_name || '',
-              hours: currentOptions.business_hours || '',
-              address: currentOptions.business_address || '',
-              phone: currentOptions.business_phone || ''
+          if (template) {
+            // Obtener valores actuales o nuevos
+            const currentOptions = template_options !== undefined ? template_options : currentConfig.template_options;
+            const currentCustom = custom_instructions !== undefined ? custom_instructions : currentConfig.custom_instructions;
+
+            // Preparar businessConfig con valores nuevos o actuales
+            const businessConfig = {
+              business_name: business_name !== undefined ? business_name : currentConfig.business_name,
+              business_description: business_description !== undefined ? business_description : currentConfig.business_description,
+              business_address: business_address !== undefined ? business_address : currentConfig.business_address,
+              business_phone: business_phone !== undefined ? business_phone : currentConfig.business_phone,
+              business_email: business_email !== undefined ? business_email : currentConfig.business_email,
+              business_website: business_website !== undefined ? business_website : currentConfig.business_website,
+              social_networks: social_networks !== undefined ? social_networks : currentConfig.social_networks,
+              business_hours: business_hours !== undefined ? business_hours : currentConfig.business_hours,
+              use_emojis: use_emojis !== undefined ? use_emojis : currentConfig.use_emojis,
+              message_tone: message_tone !== undefined ? message_tone : currentConfig.message_tone,
             };
-          }
 
-          // Actualizar configuraciones técnicas de la plantilla
-          updateData.tone = template.default_tone;
-          updateData.use_emojis = template.default_use_emojis;
-          updateData.response_length = template.default_response_length;
-          updateData.strict_mode = template.default_strict_mode;
+            // Regenerar contexto
+            updateData.main_context = generateFullContext(
+              template,
+              currentOptions,
+              businessConfig,
+              currentCustom
+            );
+
+            // Actualizar business_info
+            updateData.business_info = {
+              name: businessConfig.business_name || '',
+              hours: businessConfig.business_hours || '',
+              address: businessConfig.business_address || '',
+              phone: businessConfig.business_phone || ''
+            };
+
+            // Actualizar configuraciones técnicas
+            updateData.tone = businessConfig.message_tone || template.default_tone;
+            updateData.message_tone = businessConfig.message_tone || currentConfig.message_tone || 'amigable';
+            updateData.use_emojis = businessConfig.use_emojis !== undefined ? businessConfig.use_emojis : template.default_use_emojis;
+            updateData.response_length = template.default_response_length;
+            updateData.strict_mode = template.default_strict_mode;
+          }
         }
       }
     }
@@ -260,6 +340,16 @@ export async function PUT(request: NextRequest) {
     if (custom_instructions !== undefined) updateData.custom_instructions = custom_instructions;
     if (selected_template_id !== undefined) updateData.selected_template_id = selected_template_id;
     if (template_options !== undefined) updateData.template_options = template_options;
+
+    // Actualizar campos de configuración principal
+    if (business_name !== undefined) updateData.business_name = business_name;
+    if (business_description !== undefined) updateData.business_description = business_description;
+    if (business_address !== undefined) updateData.business_address = business_address;
+    if (business_phone !== undefined) updateData.business_phone = business_phone;
+    if (business_email !== undefined) updateData.business_email = business_email;
+    if (business_website !== undefined) updateData.business_website = business_website;
+    if (social_networks !== undefined) updateData.social_networks = social_networks;
+    if (business_hours !== undefined) updateData.business_hours = business_hours;
 
     // Actualizar configuración
     const { data, error } = await supabase

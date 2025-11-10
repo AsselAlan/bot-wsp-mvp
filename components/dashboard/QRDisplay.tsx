@@ -53,9 +53,10 @@ export function QRDisplay({ onConnected }: QRDisplayProps) {
     setLoading(true);
     setError(null);
     setQrCode(null);
+    setConnected(false);
 
     try {
-      // Iniciar conexión
+      // Iniciar conexión (esto desconectará automáticamente cualquier cliente existente)
       const response = await fetch('/api/whatsapp/connect', {
         method: 'POST'
       });

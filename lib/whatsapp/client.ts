@@ -173,6 +173,8 @@ export async function disconnectWhatsAppClient(userId: string): Promise<boolean>
   const client = clients.get(userId);
 
   if (!client) {
+    // Aún así intentar limpiar los archivos de sesión
+    await cleanupSessionFiles(userId);
     return false;
   }
 
@@ -180,11 +182,42 @@ export async function disconnectWhatsAppClient(userId: string): Promise<boolean>
     await client.destroy();
     clients.delete(userId);
     qrCodes.delete(userId);
+
+    // Limpiar archivos de sesión de WhatsApp
+    await cleanupSessionFiles(userId);
+
     console.log(`Cliente desconectado y eliminado para usuario ${userId}`);
     return true;
   } catch (error) {
     console.error('Error desconectando cliente:', error);
+    // Intentar limpiar archivos aunque haya error
+    await cleanupSessionFiles(userId);
     return false;
+  }
+}
+
+/**
+ * Limpia los archivos de sesión de WhatsApp
+ */
+async function cleanupSessionFiles(userId: string): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    // La sesión se guarda en .wwebjs_auth/session-{userId}
+    const sessionPath = path.join(process.cwd(), '.wwebjs_auth', `session-${userId}`);
+
+    try {
+      await fs.rm(sessionPath, { recursive: true, force: true });
+      console.log(`Archivos de sesión eliminados para usuario ${userId}`);
+    } catch (err) {
+      // Si no existe el directorio, no pasa nada
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('Error eliminando archivos de sesión:', err);
+      }
+    }
+  } catch (error) {
+    console.error('Error en cleanup de archivos:', error);
   }
 }
 

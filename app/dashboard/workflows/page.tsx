@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Workflow, FileText, ShoppingCart, Info, Loader2, Sparkles, MessageSquare } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Workflow, FileText, ShoppingCart, Info, Loader2, Sparkles, MessageSquare, Settings } from "lucide-react";
 import TemplateSelector from '@/components/templates/TemplateSelector';
 import BusinessOptionsForm from '@/components/templates/BusinessOptionsForm';
 import MessageFlowsList from '@/components/flows/MessageFlowsList';
@@ -20,6 +24,18 @@ export default function WorkflowsPage() {
   const [currentConfig, setCurrentConfig] = useState<any>(null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados para configuraciones principales
+  const [businessName, setBusinessName] = useState('');
+  const [businessDescription, setBusinessDescription] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessEmail, setBusinessEmail] = useState('');
+  const [businessWebsite, setBusinessWebsite] = useState('');
+  const [socialNetworks, setSocialNetworks] = useState('');
+  const [useEmojis, setUseEmojis] = useState(true);
+  const [messageTone, setMessageTone] = useState('amigable');
+  const [businessHours, setBusinessHours] = useState('');
 
   // Estados para flujos de mensajes
   const [flows, setFlows] = useState<MessageFlow[]>([]);
@@ -41,6 +57,18 @@ export default function WorkflowsPage() {
       if (result.success && result.data) {
         setCurrentConfig(result.data);
         setTemplateOptions(result.data.template_options || {});
+
+        // Cargar configuraciones principales
+        setBusinessName(result.data.business_name || '');
+        setBusinessDescription(result.data.business_description || '');
+        setBusinessAddress(result.data.business_address || '');
+        setBusinessPhone(result.data.business_phone || '');
+        setBusinessEmail(result.data.business_email || '');
+        setBusinessWebsite(result.data.business_website || '');
+        setSocialNetworks(result.data.social_networks || '');
+        setUseEmojis(result.data.use_emojis !== undefined ? result.data.use_emojis : true);
+        setMessageTone(result.data.message_tone || 'amigable');
+        setBusinessHours(result.data.business_hours || '');
 
         // Si tiene template seleccionada, cargarla
         if (result.data.selected_template_id) {
@@ -174,12 +202,30 @@ export default function WorkflowsPage() {
       setError(null);
       setSuccess(false);
 
+      // Validar campos obligatorios
+      if (!businessName.trim()) {
+        throw new Error('El nombre del negocio es obligatorio');
+      }
+      if (!businessDescription.trim()) {
+        throw new Error('La descripción del negocio es obligatoria');
+      }
+
       const response = await fetch('/api/bot/config', {
         method: currentConfig ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_template_id: selectedTemplate?.id || null,
           template_options: templateOptions,
+          business_name: businessName,
+          business_description: businessDescription,
+          business_address: businessAddress,
+          business_phone: businessPhone,
+          business_email: businessEmail,
+          business_website: businessWebsite,
+          social_networks: socialNetworks,
+          use_emojis: useEmojis,
+          message_tone: messageTone,
+          business_hours: businessHours,
         }),
       });
 
@@ -193,16 +239,37 @@ export default function WorkflowsPage() {
       setTimeout(() => setSuccess(false), 3000);
       await loadCurrentConfig();
 
-      // Si es plantilla de Delivery, crear flujo predeterminado si no existe
-      if (selectedTemplate?.slug === 'servicio-delivery-comida') {
+      // Si es plantilla de Delivery, crear flujo predeterminado y configuración de pedidos
+      if (selectedTemplate?.slug === 'food-delivery') {
         try {
+          // Crear flujo predeterminado de pedidos
           await fetch('/api/bot/message-flows/create-default', {
             method: 'POST',
           });
+
+          // Crear/activar configuración de pedidos
+          await fetch('/api/bot/order-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              enable_order_taking: true,
+              require_customer_name: true,
+              require_delivery_address: true,
+              require_payment_method: true,
+              delivery_zones: [],
+              payment_methods: ['Efectivo', 'Transferencia'],
+              order_confirmation_message: '✅ Tu pedido #{order_number} fue recibido. Te llegará en {estimated_time}.',
+              auto_confirm_orders: false,
+              default_delivery_time: '30-45 minutos',
+            }),
+          });
+
           // Recargar flujos para mostrar el nuevo
           await loadFlows();
+
+          console.log('✅ Sistema de pedidos activado automáticamente');
         } catch (err) {
-          console.error('Error creando flujo predeterminado:', err);
+          console.error('Error configurando sistema de pedidos:', err);
           // No mostrar error al usuario, es opcional
         }
       }
@@ -303,8 +370,12 @@ export default function WorkflowsPage() {
 
       {/* Workflow Configuration Tabs */}
       {selectedTemplate && (
-        <Tabs defaultValue="options" className="w-full">
-          <TabsList className={`grid w-full max-w-2xl ${selectedTemplate.supports_orders ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <Tabs defaultValue="main-config" className="w-full">
+          <TabsList className={`grid w-full ${selectedTemplate.supports_orders ? 'grid-cols-5' : 'grid-cols-4'}`}>
+            <TabsTrigger value="main-config">
+              <Settings className="h-4 w-4 mr-2" />
+              Configuración Principal
+            </TabsTrigger>
             <TabsTrigger value="options">
               <Workflow className="h-4 w-4 mr-2" />
               Opciones
@@ -324,6 +395,189 @@ export default function WorkflowsPage() {
               Flujos de Mensajes
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="main-config" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuración Principal del Negocio</CardTitle>
+                <CardDescription>
+                  Información esencial y obligatoria sobre tu negocio que el bot utilizará para responder a los clientes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Nombre del Negocio */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-name">
+                    Nombre del Negocio <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="business-name"
+                    type="text"
+                    placeholder="Ej: Pizzería Don Mario"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    El nombre con el que el bot se presentará a los clientes
+                  </p>
+                </div>
+
+                {/* Descripción del Negocio */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-description">
+                    Descripción del Negocio <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="business-description"
+                    placeholder="Ej: Pizzería artesanal con más de 20 años de experiencia. Especialistas en pizzas a la piedra con ingredientes frescos y recetas tradicionales italianas."
+                    value={businessDescription}
+                    onChange={(e) => setBusinessDescription(e.target.value)}
+                    rows={4}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Una breve descripción de tu negocio, productos o servicios
+                  </p>
+                </div>
+
+                {/* Dirección */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-address">Dirección</Label>
+                  <Input
+                    id="business-address"
+                    type="text"
+                    placeholder="Ej: Av. Corrientes 1234, CABA"
+                    value={businessAddress}
+                    onChange={(e) => setBusinessAddress(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Dirección física de tu negocio (opcional)
+                  </p>
+                </div>
+
+                {/* Teléfono */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-phone">Teléfono de Contacto</Label>
+                  <Input
+                    id="business-phone"
+                    type="text"
+                    placeholder="Ej: +54 9 11 1234-5678"
+                    value={businessPhone}
+                    onChange={(e) => setBusinessPhone(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Número principal de contacto (opcional)
+                  </p>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-email">Email</Label>
+                  <Input
+                    id="business-email"
+                    type="email"
+                    placeholder="Ej: contacto@tupizzeria.com"
+                    value={businessEmail}
+                    onChange={(e) => setBusinessEmail(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Email de contacto del negocio (opcional)
+                  </p>
+                </div>
+
+                {/* Sitio Web */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-website">Sitio Web</Label>
+                  <Input
+                    id="business-website"
+                    type="url"
+                    placeholder="Ej: https://www.tupizzeria.com"
+                    value={businessWebsite}
+                    onChange={(e) => setBusinessWebsite(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    URL de tu sitio web (opcional)
+                  </p>
+                </div>
+
+                {/* Redes Sociales */}
+                <div className="space-y-2">
+                  <Label htmlFor="social-networks">Redes Sociales</Label>
+                  <Textarea
+                    id="social-networks"
+                    placeholder="Ej: Instagram: @tupizzeria&#10;Facebook: facebook.com/tupizzeria&#10;TikTok: @tupizzeria"
+                    value={socialNetworks}
+                    onChange={(e) => setSocialNetworks(e.target.value)}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enlaces o usuarios de tus redes sociales (opcional)
+                  </p>
+                </div>
+
+                {/* Horarios */}
+                <div className="space-y-2">
+                  <Label htmlFor="business-hours">Horarios de Atención</Label>
+                  <Textarea
+                    id="business-hours"
+                    placeholder="Ej: Lunes a Viernes: 11:00 - 23:00&#10;Sábados y Domingos: 12:00 - 00:00"
+                    value={businessHours}
+                    onChange={(e) => setBusinessHours(e.target.value)}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Horarios en los que atiendes (opcional)
+                  </p>
+                </div>
+
+                {/* Configuración de Mensajes */}
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Estilo de Mensajes</h3>
+
+                  {/* Usar Emojis */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="space-y-0.5">
+                      <Label>Usar Emojis en las Respuestas</Label>
+                      <p className="text-sm text-muted-foreground">
+                        El bot usará emojis para hacer las conversaciones más amigables
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useEmojis}
+                      onCheckedChange={setUseEmojis}
+                    />
+                  </div>
+
+                  {/* Tonalidad */}
+                  <div className="space-y-2">
+                    <Label htmlFor="message-tone">Tonalidad del Mensaje</Label>
+                    <select
+                      id="message-tone"
+                      value={messageTone}
+                      onChange={(e) => setMessageTone(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="formal">Formal y profesional</option>
+                      <option value="amigable">Amigable y cercano</option>
+                      <option value="casual">Casual e informal</option>
+                      <option value="entusiasta">Entusiasta y energético</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Define cómo el bot se comunicará con los clientes
+                    </p>
+                  </div>
+                </div>
+
+                {/* Advertencia de campos obligatorios */}
+                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <p className="text-sm text-amber-900 dark:text-amber-100">
+                    ⚠️ Los campos marcados con <span className="text-red-500">*</span> son obligatorios. El bot necesita esta información para funcionar correctamente.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="options" className="mt-6">
             <Card>

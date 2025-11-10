@@ -19,6 +19,17 @@ export async function POST(request: NextRequest) {
 
     console.log('Iniciando conexión de WhatsApp para usuario:', userId);
 
+    // Primero, desconectar cualquier cliente existente
+    const { disconnectWhatsAppClient, getWhatsAppClient } = await import('@/lib/whatsapp/client');
+    const existingClient = getWhatsAppClient(userId);
+
+    if (existingClient) {
+      console.log('Desconectando cliente existente antes de crear uno nuevo...');
+      await disconnectWhatsAppClient(userId);
+      // Esperar un momento para asegurar que se limpie completamente
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
     // Inicializar cliente de WhatsApp
     await initializeWhatsAppClient({
       userId,

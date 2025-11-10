@@ -210,6 +210,18 @@ export function getDefaultTemplateOptions(templateOptions: any[]): Record<string
 export function generateFullContext(
   template: BusinessTemplate,
   templateOptions: Record<string, any>,
+  businessConfig: {
+    business_name?: string;
+    business_description?: string;
+    business_address?: string;
+    business_phone?: string;
+    business_email?: string;
+    business_website?: string;
+    social_networks?: string;
+    business_hours?: string;
+    use_emojis?: boolean;
+    message_tone?: string;
+  } = {},
   customInstructions?: string
 ): string {
   let context = template.default_main_context;
@@ -217,24 +229,40 @@ export function generateFullContext(
   // 1. AGREGAR INFORMACIÓN BÁSICA DEL NEGOCIO
   const basicInfoParts: string[] = [];
 
-  if (templateOptions.business_name) {
-    basicInfoParts.push(`Nombre del negocio: ${templateOptions.business_name}`);
+  if (businessConfig.business_name) {
+    basicInfoParts.push(`Nombre del negocio: ${businessConfig.business_name}`);
   }
 
-  if (templateOptions.business_hours) {
-    basicInfoParts.push(`Horarios de atención: ${templateOptions.business_hours}`);
+  if (businessConfig.business_description) {
+    basicInfoParts.push(`Descripción: ${businessConfig.business_description}`);
   }
 
-  if (templateOptions.business_address) {
-    basicInfoParts.push(`Dirección: ${templateOptions.business_address}`);
+  if (businessConfig.business_address) {
+    basicInfoParts.push(`Dirección: ${businessConfig.business_address}`);
   }
 
-  if (templateOptions.business_phone) {
-    basicInfoParts.push(`Teléfono de contacto: ${templateOptions.business_phone}`);
+  if (businessConfig.business_phone) {
+    basicInfoParts.push(`Teléfono de contacto: ${businessConfig.business_phone}`);
+  }
+
+  if (businessConfig.business_email) {
+    basicInfoParts.push(`Email: ${businessConfig.business_email}`);
+  }
+
+  if (businessConfig.business_website) {
+    basicInfoParts.push(`Sitio web: ${businessConfig.business_website}`);
+  }
+
+  if (businessConfig.social_networks) {
+    basicInfoParts.push(`Redes sociales:\n${businessConfig.social_networks}`);
+  }
+
+  if (businessConfig.business_hours) {
+    basicInfoParts.push(`Horarios de atención:\n${businessConfig.business_hours}`);
   }
 
   if (basicInfoParts.length > 0) {
-    context += `\n\n${basicInfoParts.join('\n')}`;
+    context += `\n\nINFORMACIÓN DEL NEGOCIO:\n${basicInfoParts.join('\n')}`;
   }
 
   // 2. AGREGAR INSTRUCCIONES DE OPCIONES ACTIVADAS
@@ -243,11 +271,20 @@ export function generateFullContext(
     context += templateInstructions;
   }
 
-  // 3. AGREGAR REGLAS DE COMPORTAMIENTO (automático según plantilla)
+  // 3. AGREGAR REGLAS DE COMPORTAMIENTO (usa configuración personalizada o valores de plantilla)
   context += `\n\nREGLAS DE COMPORTAMIENTO:`;
-  context += `\n- Tono: ${getToneDescription(template.default_tone)}`;
+
+  // Usar tonalidad personalizada si existe, sino usar la de la plantilla
+  const tone = businessConfig.message_tone || template.default_tone;
+  context += `\n- Tono: ${getToneDescription(tone)}`;
+
   context += `\n- Longitud de respuesta: ${getLengthDescription(template.default_response_length)}`;
-  context += `\n- Emojis: ${getEmojiDescription(template.default_use_emojis)}`;
+
+  // Usar configuración de emojis personalizada si existe
+  const emojiUsage = businessConfig.use_emojis !== undefined
+    ? (businessConfig.use_emojis ? 'moderate' : 'never')
+    : template.default_use_emojis;
+  context += `\n- Emojis: ${getEmojiDescription(emojiUsage)}`;
 
   if (template.default_strict_mode) {
     context += `\n- MODO ESTRICTO: Nunca inventes información que no esté explícitamente en este contexto. Si no tienes un dato, admítelo honestamente.`;
@@ -267,10 +304,12 @@ export function generateFullContext(
 function getToneDescription(tone: string): string {
   const descriptions: Record<string, string> = {
     formal: 'Formal y profesional, usando lenguaje técnico cuando sea apropiado',
-    casual: 'Casual y relajado, como hablando con un amigo',
+    amigable: 'Amigable y cálido, profesional pero accesible',
+    casual: 'Casual e informal, como hablando con un amigo cercano',
+    entusiasta: 'Entusiasta y energético, mostrando pasión por el negocio',
     friendly: 'Amigable y cálido, profesional pero accesible',
   };
-  return descriptions[tone] || descriptions.friendly;
+  return descriptions[tone] || descriptions.amigable;
 }
 
 /**

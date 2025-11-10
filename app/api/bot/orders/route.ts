@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { CreateOrderRequest } from '@/types';
+import { notifyOrderStatusChange } from '@/lib/whatsapp/notifications';
 
 /**
  * GET /api/bot/orders
@@ -8,11 +9,15 @@ import { CreateOrderRequest } from '@/types';
  */
 export async function GET(request: NextRequest) {
   try {
+    console.log('[GET /api/bot/orders] Starting request...');
     const supabase = await createClient();
+    console.log('[GET /api/bot/orders] Supabase client created');
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('[GET /api/bot/orders] User:', user?.id, 'Auth Error:', authError);
 
     if (authError || !user) {
+      console.error('[GET /api/bot/orders] Authentication failed:', authError);
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
@@ -32,13 +37,15 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
+    console.log('[GET /api/bot/orders] Executing query...');
     const { data: orders, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching orders:', error);
-      return NextResponse.json({ error: 'Error al obtener pedidos' }, { status: 500 });
+      console.error('[GET /api/bot/orders] Error fetching orders:', error);
+      return NextResponse.json({ error: 'Error al obtener pedidos', details: error.message }, { status: 500 });
     }
 
+    console.log('[GET /api/bot/orders] Success! Found', orders?.length, 'orders');
     return NextResponse.json({
       orders: orders || [],
       total: count || 0,
@@ -46,9 +53,15 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
-  } catch (error) {
-    console.error('Error in GET /api/bot/orders:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[GET /api/bot/orders] Caught exception:', error);
+    console.error('[GET /api/bot/orders] Error message:', error?.message);
+    console.error('[GET /api/bot/orders] Error stack:', error?.stack);
+    return NextResponse.json({
+      error: 'Error interno del servidor',
+      message: error?.message || 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+    }, { status: 500 });
   }
 }
 
@@ -147,7 +160,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/bot/orders/[id]
+ * PATCH /api/bot/orders
  * Actualiza un pedido (estado, notas, etc.)
  */
 export async function PATCH(request: NextRequest) {
@@ -160,34 +173,37 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('id');
+    const body = await request.json();
+    const { id: orderId, notify_client = true, ...updateFields } = body;
 
     if (!orderId) {
       return NextResponse.json({ error: 'ID de pedido requerido' }, { status: 400 });
     }
 
-    const body = await request.json();
     const allowedFields = ['status', 'internal_notes', 'payment_status', 'delivery_time'];
 
     const updateData: any = {};
 
     allowedFields.forEach((field) => {
-      if (body[field] !== undefined) {
-        updateData[field] = body[field];
+      if (updateFields[field] !== undefined) {
+        updateData[field] = updateFields[field];
       }
     });
 
     // Registrar timestamps especiales
-    if (body.status === 'confirmed' && !updateData.confirmed_at) {
+    if (updateFields.status === 'confirmed' && !updateData.confirmed_at) {
       updateData.confirmed_at = new Date().toISOString();
     }
 
-    if (body.status === 'cancelled') {
+    if (updateFields.status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
-      if (body.cancellation_reason) {
-        updateData.cancellation_reason = body.cancellation_reason;
+      if (updateFields.cancellation_reason) {
+        updateData.cancellation_reason = updateFields.cancellation_reason;
       }
+    }
+
+    if (updateFields.status === 'delivered' && updateFields.delivery_time) {
+      updateData.delivery_time = updateFields.delivery_time;
     }
 
     const { data: order, error: updateError } = await supabase
@@ -201,6 +217,41 @@ export async function PATCH(request: NextRequest) {
     if (updateError) {
       console.error('Error updating order:', updateError);
       return NextResponse.json({ error: 'Error al actualizar pedido' }, { status: 500 });
+    }
+
+    // Enviar notificación al cliente si cambió el estado y notify_client es true
+    if (updateFields.status && notify_client) {
+      try {
+        // Obtener configuración de pedidos para mensajes personalizados
+        const { data: orderConfig } = await supabase
+          .from('order_config')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        const customMessages = orderConfig ? {
+          order_confirmation_message: orderConfig.order_confirmation_message,
+          preparing_message: orderConfig.preparing_message,
+          in_delivery_message: orderConfig.in_delivery_message,
+          delivered_message: orderConfig.delivered_message,
+          cancelled_message: orderConfig.cancelled_message,
+        } : undefined;
+
+        // Enviar notificación
+        const notificationSent = await notifyOrderStatusChange(
+          user.id,
+          order,
+          updateFields.status,
+          customMessages
+        );
+
+        if (!notificationSent) {
+          console.warn('No se pudo enviar notificación al cliente');
+        }
+      } catch (notificationError) {
+        console.error('Error al enviar notificación:', notificationError);
+        // No fallar la actualización si falla la notificación
+      }
     }
 
     return NextResponse.json({

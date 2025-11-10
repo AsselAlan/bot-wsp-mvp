@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle, Sliders, Workflow, ShoppingCart } from "lucide-react";
+import { MessageSquare, LayoutDashboard, Wifi, Settings, LogOut, AlertCircle, Sliders, Workflow, ShoppingCart, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -27,32 +27,43 @@ export default function DashboardLayout({
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log('❌ No hay usuario autenticado');
         setLoading(false);
         return;
       }
 
+      console.log('✅ Usuario autenticado:', user.id);
+
       // Get bot config with template
-      const { data: botConfig } = await supabase
+      const { data: botConfig, error: configError } = await supabase
         .from('bot_configs')
         .select('selected_template_id')
         .eq('user_id', user.id)
         .single();
 
+      console.log('📋 Bot Config:', botConfig);
+      console.log('❓ Config Error:', configError);
+
       if (!botConfig?.selected_template_id) {
+        console.log('⚠️ No hay plantilla seleccionada');
         setLoading(false);
         return;
       }
 
       // Get template info
-      const { data: template } = await supabase
+      const { data: template, error: templateError } = await supabase
         .from('business_templates')
-        .select('supports_orders')
+        .select('id, name, slug, supports_orders')
         .eq('id', botConfig.selected_template_id)
         .single();
 
+      console.log('📄 Template:', template);
+      console.log('❓ Template Error:', templateError);
+      console.log('🛒 Supports Orders:', template?.supports_orders);
+
       setSupportsOrders(template?.supports_orders || false);
     } catch (error) {
-      console.error('Error checking template:', error);
+      console.error('❌ Error checking template:', error);
     } finally {
       setLoading(false);
     }
@@ -115,15 +126,26 @@ export default function DashboardLayout({
               </Button>
             </Link>
             {supportsOrders && (
-              <Link href="/dashboard/orders">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  Pedidos
-                </Button>
-              </Link>
+              <>
+                <Link href="/dashboard/orders">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    Pedidos
+                  </Button>
+                </Link>
+                <Link href="/dashboard/order-config">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2 pl-8"
+                  >
+                    <Package className="h-4 w-4" />
+                    Config. Pedidos
+                  </Button>
+                </Link>
+              </>
             )}
 
             {/* Separator */}

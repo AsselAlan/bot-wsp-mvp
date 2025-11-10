@@ -251,7 +251,7 @@ export async function processFlowMessage(
 
       // Obtener mensaje del siguiente paso
       const nextStepData = flow.steps[nextStep - 1];
-      const nextResponse = nextStepData ? `${botResponse}\n\n${nextStepData.bot_response}` : botResponse;
+      const nextResponse = nextStepData ? nextStepData.bot_response : botResponse;
 
       return {
         response: nextResponse,
@@ -334,9 +334,219 @@ async function executeCreateOrder(
   collectedData: Record<string, any>,
   botConfig: BotConfig
 ): Promise<void> {
-  // TODO: Implementar creación de pedido usando extractOrderInformation
-  console.log('Ejecutando acción: Crear pedido');
-  console.log('Datos recopilados:', collectedData);
+  try {
+    console.log('Ejecutando acción: Crear pedido');
+    console.log('Datos recopilados:', collectedData);
+
+    const supabase = await createClient();
+
+    // Extraer datos de los pasos del flujo
+    const flowData = extractDataFromFlow(collectedData, flow.steps.length);
+
+    // Construir la conversación completa para análisis con IA
+    const conversationText = Object.values(collectedData)
+      .map((step: any) => `Usuario: ${step.user_message}\nBot: ${step.bot_response}`)
+      .join('\n\n');
+
+    // Usar IA para extraer información estructurada del pedido
+    const orderInfo = await extractOrderInfoFromFlowData(
+      conversationText,
+      flowData,
+      botConfig
+    );
+
+    if (!orderInfo) {
+      console.error('No se pudo extraer información del pedido del flujo');
+      return;
+    }
+
+    // Obtener configuración de pedidos
+    const { data: orderConfig } = await supabase
+      .from('order_config')
+      .select('*')
+      .eq('user_id', state.user_id)
+      .single();
+
+    if (!orderConfig) {
+      console.error('No se encontró configuración de pedidos');
+      return;
+    }
+
+    // Generar número de pedido
+    const { data: orderNumber } = await supabase.rpc('generate_order_number', {
+      p_user_id: state.user_id,
+    });
+
+    // Calcular costos
+    const subtotal = orderInfo.items?.reduce(
+      (sum: number, item: any) => sum + (item.precio || 0) * (item.cantidad || 0),
+      0
+    ) || 0;
+
+    let deliveryCost = 0;
+    if (orderInfo.delivery_address?.zona && orderConfig.delivery_zones) {
+      const zone = orderConfig.delivery_zones.find(
+        (z: any) => z.nombre.toLowerCase() === orderInfo.delivery_address.zona.toLowerCase()
+      );
+      if (zone) {
+        deliveryCost = zone.costo;
+      }
+    }
+
+    const total = subtotal + deliveryCost;
+
+    // Crear el pedido con estado 'pending'
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert({
+        user_id: state.user_id,
+        order_number: orderNumber || `${Date.now()}`,
+        status: 'pending', // Siempre pending para que el dueño confirme
+        customer_name: orderInfo.customer_name || 'Cliente',
+        customer_phone: state.customer_whatsapp_id.replace('@c.us', ''),
+        customer_whatsapp_id: state.customer_whatsapp_id,
+        items: orderInfo.items || [],
+        delivery_address: orderInfo.delivery_address || {},
+        payment_method: orderInfo.payment_method,
+        payment_status: 'pending',
+        subtotal,
+        delivery_cost: deliveryCost,
+        total,
+        estimated_delivery_time: orderConfig.default_delivery_time || '30-45 minutos',
+        customer_notes: orderInfo.customer_notes,
+        conversation_snapshot: collectedData, // Guardar el snapshot del flujo completo
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error al crear pedido desde flujo:', error);
+      return;
+    }
+
+    console.log(`Pedido creado exitosamente desde flujo: ${order.order_number}`);
+
+    // Actualizar el estado del flujo con el ID del pedido creado
+    await supabase
+      .from('flow_conversation_states')
+      .update({
+        collected_data: {
+          ...collectedData,
+          created_order_id: order.id,
+          created_order_number: order.order_number,
+        },
+      })
+      .eq('id', state.id);
+
+  } catch (error) {
+    console.error('Error al ejecutar creación de pedido:', error);
+  }
+}
+
+/**
+ * Extrae datos relevantes de los pasos del flujo
+ */
+function extractDataFromFlow(collectedData: Record<string, any>, totalSteps: number): {
+  productos?: string;
+  direccion?: string;
+  pago?: string;
+} {
+  const flowData: any = {};
+
+  // Intentar extraer datos de cada paso
+  // Asumiendo que:
+  // - Paso 1: productos
+  // - Paso 2: dirección
+  // - Paso 3: método de pago
+  // - Paso 4+: confirmación/otros
+
+  if (collectedData.step_1) {
+    flowData.productos = collectedData.step_1.user_message;
+  }
+
+  if (collectedData.step_2) {
+    flowData.direccion = collectedData.step_2.user_message;
+  }
+
+  if (collectedData.step_3) {
+    flowData.pago = collectedData.step_3.user_message;
+  }
+
+  return flowData;
+}
+
+/**
+ * Extrae información estructurada usando IA desde los datos del flujo
+ */
+async function extractOrderInfoFromFlowData(
+  conversationText: string,
+  flowData: any,
+  botConfig: BotConfig
+): Promise<any | null> {
+  try {
+    if (!botConfig.openai_api_key) {
+      console.error('No hay API key de OpenAI configurada');
+      return null;
+    }
+
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({ apiKey: botConfig.openai_api_key });
+
+    const prompt = `Extrae la información del pedido de la siguiente conversación de un flujo de toma de pedidos.
+
+Conversación completa:
+${conversationText}
+
+Extrae TODA la información disponible del pedido. Si un campo no está mencionado, déjalo como null.
+
+Responde SOLO con un JSON en este formato exacto:
+{
+  "customer_name": "nombre del cliente o null",
+  "items": [
+    {
+      "producto": "nombre del producto",
+      "cantidad": número,
+      "precio": precio unitario o null,
+      "detalles": "detalles adicionales o null"
+    }
+  ],
+  "delivery_address": {
+    "calle": "nombre de la calle o null",
+    "numero": "número o null",
+    "piso_depto": "piso/depto o null",
+    "barrio": "barrio o null",
+    "zona": "zona de delivery o null",
+    "referencias": "referencias adicionales o null"
+  },
+  "payment_method": "efectivo/transferencia/otro o null",
+  "customer_notes": "notas adicionales del cliente o null"
+}
+
+Importante:
+- Si items está vacío, retorna []
+- Si no hay dirección, retorna un objeto con todos los campos en null
+- Sé preciso con las cantidades y productos
+- Intenta inferir información aunque no esté explícita`;
+
+    const response = await openai.chat.completions.create({
+      model: botConfig.openai_model || 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      max_tokens: 800,
+    });
+
+    const content = response.choices[0]?.message?.content?.trim();
+    if (!content) {
+      return null;
+    }
+
+    const orderInfo = JSON.parse(content);
+    return orderInfo;
+
+  } catch (error) {
+    console.error('Error al extraer información del pedido con IA:', error);
+    return null;
+  }
 }
 
 /**
