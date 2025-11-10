@@ -2,6 +2,7 @@
 export interface User {
   id: string;
   email: string;
+  role: 'admin' | 'client';
   created_at: string;
   subscription_tier: string;
 }
